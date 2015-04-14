@@ -97,7 +97,77 @@ EXIT_Handler:
 
 CREATE_Handler:
 ;;;create a new process
+;;;%g1 holds the ROM# of the process we want to create
 
+;;;search through the process table and find an empty process
+    COPY    %G2      0
+;;;G4 is a counter so we know what to make the process ID    
+    COPY    %G4      1
+    COPY    %G3      +process_table
+    ADDUS     %G3      %G3      4
+    ;;;we use addus here instead of add right?
+create_process_table_looptop:
+    BEQ     +found_empty_process    %G3      %G2
+    ADDUS   %G3    %G3   48
+    BEQ     +no_room_in_process_table    *%G3    16
+    ADDUS   %G4    %G4    1
+    JUMP    +create_process_table_looptop
+
+found_empty_process: 
+;;;assign process ID
+    COPY    *%G3    %G4
+;;;put base and limit
+;;;at this point, G3 is pointing to the process ID and G1 is telling us the rom number
+    COPY    %G0    +*bus_start
+    ;;;G2 holds the ROM code which is 2, G4 holds our counter (we want this to equal g1)
+    COPY    %G2     2
+    COPY    %G4     0
+found_empty_process_looptop:
+    BNEQ     +create_a    *%G0   %G2
+    ADDUS    %G4    1
+    BEQ      +create_b     %G4    %G1    
+   
+create_a:
+    ADDUS   %G0    %G0    12
+    JUMP    +found_empty_process_looptop
+
+create_b:
+    ;;;g3 is still pointing at the process ID, g0 is pointing at the bus table entry for this rom
+    ;;;add base to process table
+    ADDUS   %G0    %G0    4
+    ADDUS   %G3    %G3    4
+    COPY    *%G3   *%G0
+    ;;;add limit to process table
+    ADDUS   %G0    %G0    4
+    ADDUS   %G3    %G3    4
+    COPY    *%G3   *%G0
+
+;;;set everything else to 0    
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+
+;;;it is in the process table, now what!!    
+
+no_room_in_process_table:
+;;;process table is full
+    HALT
+    
 GET_ROM_COUNT_Handler:
 ;;;return the number of ROMs available in the system
 
@@ -366,4 +436,45 @@ _static_dt_base_offset:     4
 _static_dt_limit_offset:    8
 _static_device_table_base:  0x00001000
 
+
+;;;PROCESS TABLE
+process_table:
+entry0_process_ID:  0
+entry0_base:    0
+entry0_limit:   0
+entry0_IP:  0
+entry0_G0:  0
+entry0_G1:  0
+entry0_G2:  0
+entry0_G3:  0
+entry0_G4:  0
+entry0_G5:  0
+entry0_SP:  0
+entry0_FP:  0
+entry1_process_ID:  0
+entry1_base:    0
+entry1_limit:   0
+entry1_IP:  0
+entry1_G0:  0
+entry1_G1:  0
+entry1_G2:  0
+entry1_G3:  0
+entry1_G4:  0
+entry1_G5:  0
+entry1_SP:  0
+entry1_FP:  0
+entry2_process_ID:  0
+entry2_base:    0
+entry2_limit:   0
+entry2_IP:  0
+entry2_G0:  0
+entry2_G1:  0
+entry2_G2:  0
+entry2_G3:  0
+entry2_G4:  0
+entry2_G5:  0
+entry2_SP:  0
+entry2_FP:  0
+end_of_process_table:   27
+;;;this is so that we can check to see if we have reached the end of the process table and it is full
 
