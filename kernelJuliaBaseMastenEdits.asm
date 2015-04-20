@@ -18,7 +18,8 @@ __start:
     COPY    *+INVALID_ADDRESS   +Dummy_Handler
     COPY    *+INVALID_REGISTER  +Dummy_Handler
     COPY    *+BUS_ERROR     +Dummy_Handler
-    COPY    *+CLOCK_ALARM     +Dummy_Handler
+    COPY    *+CLOCK_ALARM     +Switch_Handler
+    ;;;print fyi, pause current process, schedule a new process
     COPY    *+DIVIDE_BY_ZERO     +Dummy_Handler
     COPY    *+OVERFLOW    +Dummy_Handler
     COPY    *+INVALID_INSTRUCTION    +Dummy_Handler
@@ -27,6 +28,9 @@ __start:
     COPY    *+SYSTEM_CALL     +SYSC_Handler
     COPY    *+INVALID_DEVICE_VALUE    +Dummy_Handler
     COPY    *+DEVICE_FAILURE     +Dummy_Handler
+  
+   ;;; +Dummy_Handler
+    ;;;print error, exit current process, schedule a new process
 
     SETTBR +TT_BASE
     SETIBR +Interrupt_buffer_IP
