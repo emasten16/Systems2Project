@@ -90,10 +90,10 @@ deal_with_process1:
 SYSC_Handler:
 ;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
     CALL    +register_preserver     +return_address
-    BEQ     EXIT_Handler    %G0     0
-    BEQ     CREATE_Handler  %G0     1
-    BEQ     GET_ROM_COUNT_Handler   %G0     2
-    BEQ     PRINT_Handler           %G0     4
+    BEQ     +EXIT_Handler    %G0     0
+    BEQ     +CREATE_Handler  %G0     1
+    BEQ     +GET_ROM_COUNT_Handler   %G0     2
+    BEQ     +PRINT_Handler           %G0     4
 
 EXIT_Handler:
 ;;;return process memory to free space
