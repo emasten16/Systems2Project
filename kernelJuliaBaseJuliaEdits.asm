@@ -9,18 +9,18 @@
 ;;; The entry point.                                                                                                                
 __start:    
     ;;Set up trap table
-    COPY    *+INVALID_ADDRESS   Dummy_Handler
-    COPY    *+INVALID_REGISTER  Dummy_Handler
-    COPY    *+BUS_ERROR     Dummy_Handler
-    COPY    *+CLOCK_ALARM     Dummy_Handler
-    COPY    *+DIVIDE_BY_ZERO     Dummy_Handler
-    COPY    *+OVERFLOW    Dummy_Handler
-    COPY    *+INVALID_INSTRUCTION    Dummy_Handler
-    COPY    *+PERMISSION_VIOLATION     Dummy_Handler
-    COPY    *+INVLID_SHIFT_AMOUNT     Dummy_Handler
-    COPY    *+SYSTEM_CALL     Dummy_Handler
-    COPY    *+INVALID_DEVICE_VALUE    Dummy_Handler
-    COPY    *+DEVICE_FAILURE     Dummy_Handler
+    COPY    *+INVALID_ADDRESS   +Dummy_Handler
+    COPY    *+INVALID_REGISTER  +Dummy_Handler
+    COPY    *+BUS_ERROR     +Dummy_Handler
+    COPY    *+CLOCK_ALARM     +Dummy_Handler
+    COPY    *+DIVIDE_BY_ZERO     +Dummy_Handler
+    COPY    *+OVERFLOW    +Dummy_Handler
+    COPY    *+INVALID_INSTRUCTION    +Dummy_Handler
+    COPY    *+PERMISSION_VIOLATION     +Dummy_Handler
+    COPY    *+INVLID_SHIFT_AMOUNT     +Dummy_Handler
+    COPY    *+SYSTEM_CALL     +Dummy_Handler
+    COPY    *+INVALID_DEVICE_VALUE    +Dummy_Handler
+    COPY    *+DEVICE_FAILURE     +Dummy_Handler
 
     SETTBR +TT_BASE
     SETIBR +Interrupt_buffer_IP
@@ -175,9 +175,6 @@ deal_with_process1:
 
 ;;MAIN IS DONE DOING STUFF
 
-    ;;callee epilogue
-    ADD     %G1     %FP     8;%G1 now holds the address of the RV
-    COPY    *%G1     %G0;   Store the retun value at RV
     ;;restore registers
     COPY    %G5     *%SP
     ADDUS   %SP     %SP     4
