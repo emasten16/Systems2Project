@@ -9,18 +9,18 @@
 ;;; The entry point.                                                                                                                
 __start:    
     ;;Set up trap table
-    COPY    *+INVALID_ADDRESS   Dummy_Handler
-    COPY    *+INVALID_REGISTER  Dummy_Handler
-    COPY    *+BUS_ERROR     Dummy_Handler
-    COPY    *+CLOCK_ALARM     Dummy_Handler
-    COPY    *+DIVIDE_BY_ZERO     Dummy_Handler
-    COPY    *+OVERFLOW    Dummy_Handler
-    COPY    *+INVALID_INSTRUCTION    Dummy_Handler
-    COPY    *+PERMISSION_VIOLATION     Dummy_Handler
-    COPY    *+INVLID_SHIFT_AMOUNT     Dummy_Handler
-    COPY    *+SYSTEM_CALL     Dummy_Handler
-    COPY    *+INVALID_DEVICE_VALUE    Dummy_Handler
-    COPY    *+DEVICE_FAILURE     Dummy_Handler
+    COPY    *+INVALID_ADDRESS   +Dummy_Handler
+    COPY    *+INVALID_REGISTER  +Dummy_Handler
+    COPY    *+BUS_ERROR     +Dummy_Handler
+    COPY    *+CLOCK_ALARM     +Dummy_Handler
+    COPY    *+DIVIDE_BY_ZERO     +Dummy_Handler
+    COPY    *+OVERFLOW    +Dummy_Handler
+    COPY    *+INVALID_INSTRUCTION    +Dummy_Handler
+    COPY    *+PERMISSION_VIOLATION     +Dummy_Handler
+    COPY    *+INVLID_SHIFT_AMOUNT     +Dummy_Handler
+    COPY    *+SYSTEM_CALL     +Dummy_Handler
+    COPY    *+INVALID_DEVICE_VALUE    +Dummy_Handler
+    COPY    *+DEVICE_FAILURE     +Dummy_Handler
 
     SETTBR +TT_BASE
     SETIBR +Interrupt_buffer_IP
@@ -88,10 +88,60 @@ RAM_too_small:
 	HALT
 
 
-;;will be the contents of MAIN function
 main:
+;Test needs one argument, an INT and adds the value stored in a local variable (l = 3). Then returns the result  
+;;; Callee preserved registers:
+;;;   [%FP - 4]:  G0
+;;;   [%FP - 8]:  G1
+;;;   [%FP - 12]: G2
+;;;   [%FP - 16]: G4
+;;;   [%FP - 20]: G5
+;;; Parameters:
+;;;   <none>
+;;; Caller preserved registers:
+;;;   [%FP + 4]: FP
+;;; Return address:
+;;;   [%FP + 8]
+;;; Return value:
+;;;  <none>
+;;; Locals:
+;;;   <none>
+;;callee prologue for MAIN method
+    COPY    %FP     %SP; Frame Pointer is now set to correct location
+    ;;preserve registers
+    SUBUS   %SP     %SP     4
+    COPY    *%SP    %G0
+    SUBUS   %SP     %SP     4
+    COPY    *%SP    %G1
+     SUBUS   %SP     %SP     4
+    COPY    *%SP    %G2
+     SUBUS   %SP     %SP     4
+    COPY    *%SP    %G3
+     SUBUS   %SP     %SP     4
+    COPY    *%SP    %G4
+    SUBUS   %SP     %SP     4
+    COPY    *%SP    %G5
+    
+;;MAIN METHOD DOES STUFF
+
+;;caller prolog for a test function:
+    SUBUS   %SP     %SP     12; move SP over 3 words
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %FP     %SP     4; %FP has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    COPY    *%SP    3; 3 =  the argument that I will pass to the test function
+    CALL   +function_test  *%FP
+
+;;caller epilogue
+    ADDUS   %SP     %SP     4; pop the arguments. %SP now points to PFP
+    COPY    %FP     *%SP
+    ADDUS   %SP     %SP     8; %SP now points to the return value
+    
+    COPY    %G5     *%SP; %G5 has the value that was returned from test function
+
+
+
    COPY     %G1     0 ;let %G1 be the counter for how many rom type devices have been seen
-   
    ;;TASK 2: Find and run init.asm
 start_loop: BEQ    +rom_type_device         *%G0       *+_static_ROM_device_code
     ADD     %G0    %G0  *+_skip_process_table_element
@@ -122,8 +172,86 @@ deal_with_process1:
     COPY    *%G5    %G3         ;store length of procsess at end of bus
         
     JUMPMD    %G4   2;jump to start of process in MM
-    
+
+;;MAIN IS DONE DOING STUFF
+
+    ;;restore registers
+    COPY    %G5     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G4     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G3     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G2     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G1     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G0    *%SP;
+    COPY    %SP     %FP;    pop callee subframe. SP points to PFP
+    ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
+    JUMP    *%FP; return to caller function 
 ;;WILL BE THE END OF MAIN ()
+
+;Test needs one argument, an INT and adds the value stored in a local variable (l = 3). Then returns the result  
+;;; Callee preserved registers:
+;;;   [%FP - 8]:  G0
+;;;   [%FP - 12]:  G1
+;;;   [%FP - 16]: G2
+;;;   [%FP - 20]: G4
+;;;   [%FP - 24]: G5
+;;; Parameters:
+;;;   [%FP + 0]: the int that will be added
+;;; Caller preserved registers:
+;;;   [%FP + 4]: FP
+;;; Return address:
+;;;   [%FP + 8]
+;;; Return value:
+;;;   [%FP + 12]: The sum of 2 ints
+;;; Locals:
+;;;     [%FP - 4]: the variable that will be added to the argument
+function_test:
+;;callee prologue
+    COPY    %FP     %SP; Frame Pointer is now set to correct location
+    ;store space for local variables
+    SUBUS   %SP     %SP     4; %SP now holds address of variable, l
+    COPY    *%SP    3; l=3
+    ;;preserve registers
+    SUBUS   %SP     %SP     4
+    COPY    *%SP    %G0
+    SUBUS   %SP     %SP     4
+    COPY    *%SP    %G1
+     SUBUS   %SP     %SP     4
+    COPY    *%SP    %G2
+     SUBUS   %SP     %SP     4
+    COPY    *%SP    %G3
+     SUBUS   %SP     %SP     4
+    COPY    *%SP    %G4
+    SUBUS   %SP     %SP     4
+    COPY    *%SP    %G5
+    
+    ;;function does stuff
+    COPY    %G0     *%FP; register %G0 now has the value of argument passed to our test function
+    ADD     %G0     %G0     3;
+    
+;;callee epilogue
+    ADD     %G1     %FP     12;%G1 now holds the address of the RV
+    COPY    *%G1     %G0;   Store the retun value at RV
+    ;;restore registers
+    COPY    %G5     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G4     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G3     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G2     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G1     *%SP
+    ADDUS   %SP     %SP     4
+    COPY    %G0    *%SP;
+    COPY    %SP     %FP;    pop callee subframe. SP points to first argument
+    ADDUS   %FP     %SP     8; now FP points to RA (as it did before function called)
+    JUMP    *%FP; return to caller function
+    
 Dummy_Handler:
     HALT
     
