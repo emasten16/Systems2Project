@@ -124,18 +124,6 @@ main:
     
 ;;MAIN METHOD DOES STUFF
 
-<<<<<<< HEAD:printtesting.asm
-;;caller prolog for a test function:
-    SUBUS   %SP     %SP     4  ;move SP over 4 words for pfp - no room for return value, we dont have one
-    COPY    *%SP    %FP; presrve FP in the PFP word
-    SUBUS   %SP    %SP  8  ;move stack 8, room for one arg and ra
-    COPY   %FP   %SP
-    ADDUS   %FP   %FP   4  ;FP pointing at arg
-    COPY   *%FP  +_string_test_msg  ;copy string to print into arg space
-    ;;; FP pointing to arg, SP pointing to ra
-    CALL   +_procedure_print  %SP
-=======
-
 
 ;;caller prolog for the print function function:
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
@@ -152,7 +140,7 @@ main:
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
  
 
->>>>>>> juliaedholm/master:kernelFinal.asm
+
 
 ;;call a test function
 ;;caller prolog for a test function:
