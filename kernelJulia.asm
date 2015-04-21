@@ -27,65 +27,64 @@ __start:
     
     ;;save address of end of bus (will use for DMA)
     COPY    %G0     *+_static_device_table_base
-    ADD     %G0     %G0   *+_incriment_by_two_words ; %G0 refers to address of bus limit in PAS 
-    COPY   *+end_of_bus     *%G0 
-    ADD     %G0     %G0     *+_incriment_by_one_word ;;%G0 now is at the next device in process table 
- 
+    ADD     %G0     %G0   *+_incriment_by_two_words ; %G0 refers to address of bus limit in PAS
+    COPY   *+end_of_bus     *%G0
+    ADD     %G0     %G0     *+_incriment_by_one_word ;;%G0 now is at the next device in process table
 ;;TASK 1: Set up the stack and call main (code from Kaplan's file)
 RAM_search_loop_top:
-	;; End the search with failure if we've reached the end of the table without finding RAM.
-	BEQ		+RAM_search_failure	*%G0		*+_static_none_device_code
+    ;; End the search with failure if we've reached the end of the table without finding RAM.
+    BEQ     +RAM_search_failure *%G0        *+_static_none_device_code
 
-	;; If this entry is RAM, then end the loop successfully.
-	BEQ		+RAM_found		*%G0		*+_static_RAM_device_code
+    ;; If this entry is RAM, then end the loop successfully.
+    BEQ     +RAM_found      *%G0        *+_static_RAM_device_code
 
-	;; This entry is not RAM, so advance to the next entry.
-	ADDUS		%G0			%G0		*+_skip_process_table_element
-	JUMP		+RAM_search_loop_top
+    ;; This entry is not RAM, so advance to the next entry.
+    ADDUS       %G0         %G0     *+_skip_process_table_element
+    JUMP        +RAM_search_loop_top
 
 RAM_search_failure:
 
-	;; Record a code to indicate the error, and then halt.
-	COPY		%G5		*+_static_kernel_error_RAM_not_found
-	HALT
+    ;; Record a code to indicate the error, and then halt.
+    COPY        %G5     *+_static_kernel_error_RAM_not_found
+    HALT
 
 RAM_found:
-	
-	;; RAM has been found.  If it is big enough, create a stack.
-	ADDUS		%G1		%G0		*+_incriment_by_one_word; %G1 = &RAM[base]
-	COPY		%G1		*%G1 					  ; %G1 = RAM[base]
-	ADDUS		%G2		%G0		*+_incriment_by_two_words ; %G2 = &RAM[limit]
-	COPY		%G2		*%G2 					  ; %G2 = RAM[limit]
-	SUB		%G0		%G2		%G1 			  ; %G0 = |RAM|
-	MULUS		%G4		*+_static_min_RAM_KB	 *+_static_bytes_per_KB ; %G4 = |min_RAM|
-	BLT		+RAM_too_small	%G0		%G4
-	MULUS		%G4		*+_static_kernel_KB_size *+_static_bytes_per_KB ; %G4 = |kmem|
-	ADDUS		%SP		%G1		%G4  			  ; %SP = kernel[base] + |kmem| = kernel[limit]
-	COPY		%FP		%SP 					  ; Initialize %FP
+    
+    ;; RAM has been found.  If it is big enough, create a stack.
+    ADDUS       %G1     %G0     *+_incriment_by_one_word; %G1 = &RAM[base]
+    COPY        %G1     *%G1                      ; %G1 = RAM[base]
+    ADDUS       %G2     %G0     *+_incriment_by_two_words ; %G2 = &RAM[limit]
+    COPY        %G2     *%G2                      ; %G2 = RAM[limit]
+    SUB     %G0     %G2     %G1               ; %G0 = |RAM|
+    MULUS       %G4     *+_static_min_RAM_KB     *+_static_bytes_per_KB ; %G4 = |min_RAM|
+    BLT     +RAM_too_small  %G0     %G4
+    MULUS       %G4     *+_static_kernel_KB_size *+_static_bytes_per_KB ; %G4 = |kmem|
+    ADDUS       %SP     %G1     %G4               ; %SP = kernel[base] + |kmem| = kernel[limit]
+    COPY        %FP     %SP                       ; Initialize %FP
 
-	;; Copy the RAM and kernel bases and limits to statically allocated spaces.
-	COPY		*+_static_RAM_base		%G1
-	COPY		*+_static_RAM_limit		%G2
-	COPY		*+_static_kernel_base		%G1
-	COPY		*+_static_kernel_limit		%SP
+    ;; Copy the RAM and kernel bases and limits to statically allocated spaces.
+    COPY        *+_static_RAM_base      %G1
+    COPY        *+_static_RAM_limit     %G2
+    COPY        *+_static_kernel_base       %G1
+    COPY        *+_static_kernel_limit      %SP
 
-	;; With the stack initialized, call main() to begin booting proper.
-	SUBUS		%SP		%SP		12		 ; Push pFP / ra / rv
-	COPY		*%SP		%FP		  		 ; pFP = %FP
-	COPY		%FP		%SP				 ; Update FP.
-	ADDUS		%G5		%FP		4		 ; %G5 = &ra
-	CALL		+main		*%G5
+    ;; With the stack initialized, call main() to begin booting proper.
+    SUBUS       %SP     %SP     12       ; Push pFP / ra / rv
+    COPY        *%SP        %FP              ; pFP = %FP
+    COPY        %FP     %SP              ; Update FP.
+    ADDUS       %G5     %FP     4        ; %G5 = &ra
+    CALL        +main       *%G5
 
-	;; We should never be here, but wrap it up properly.
-	COPY		%FP		*%FP
-	ADDUS		%SP		%SP		12               ; Pop pFP / args[0] / ra / rv
-	COPY		%G5		*+_static_kernel_error_main_returned
-	HALT
+    ;; We should never be here, but wrap it up properly.
+    COPY        %FP     *%FP
+    ADDUS       %SP     %SP     12               ; Pop pFP / args[0] / ra / rv
+    COPY        %G5     *+_static_kernel_error_main_returned
+    HALT
 
 RAM_too_small:
-	;; Set an error code and halt.
-	COPY		%G5		*+_static_kernel_error_small_RAM
-	HALT
+    ;; Set an error code and halt.
+    COPY        %G5     *+_static_kernel_error_small_RAM
+    HALT
 
 
 main:
@@ -158,7 +157,7 @@ deal_with_process1:
    ;;make a process table!!!!
 ;;store the start and end address of this process in PAS and then use DMA to copy and jump to start
     ADD     %G0      %G0    *+_incriment_by_one_word
-    COPY    %G2     *%G0    ;%G2 now holds start address of process 
+    COPY    %G2     *%G0    ;%G2 now holds start address of process
     ADD     %G0      %G0    *+_incriment_by_one_word
     COPY    %G3     *%G0   ;%G3 has end address of process
     SUB    %G3    %G3   %G2     ;calculate length of process
@@ -189,7 +188,7 @@ deal_with_process1:
     COPY    %G0    *%SP;
     COPY    %SP     %FP;    pop callee subframe. SP points to PFP
     ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
-    JUMP    *%FP; return to caller function 
+    JUMP    *%FP; return to caller function
 ;;WILL BE THE END OF MAIN ()
 
 ;Test needs one argument, an INT and adds the value stored in a local variable (l = 3). Then returns the result  
@@ -257,37 +256,37 @@ Dummy_Handler:
     
 .Numeric
 end_of_bus: 0
-	;; Device table location and codes.
-_static_device_table_base:	0x00001000
+    ;; Device table location and codes.
+_static_device_table_base:  0x00001000
 _incriment_by_one_word:       0x00000004
 _incriment_by_two_words:   0x00000008
 _skip_process_table_element:       0x0000000c
-_static_none_device_code:	0
-_static_controller_device_code:	1
-_static_ROM_device_code:	2
-_static_RAM_device_code:	3
-_static_console_device_code:	4
+_static_none_device_code:   0
+_static_controller_device_code: 1
+_static_ROM_device_code:    2
+_static_RAM_device_code:    3
+_static_console_device_code:    4
 
     ;; Other constants.
-_static_min_RAM_KB:		64
-_static_bytes_per_KB:		1024
-_static_bytes_per_page:		4096	; 4 KB/page
-_static_kernel_KB_size:		32	; KB taken by the kerne
+_static_min_RAM_KB:     64
+_static_bytes_per_KB:       1024
+_static_bytes_per_page:     4096    ; 4 KB/page
+_static_kernel_KB_size:     32  ; KB taken by the kerne
 
-	;; Error codes.
-_static_kernel_error_RAM_not_found:	0xffff0001
-_static_kernel_error_main_returned:	0xffff0002
-_static_kernel_error_small_RAM:		0xffff0003	
-_static_kernel_error_console_not_found:	0xffff0004
+    ;; Error codes.
+_static_kernel_error_RAM_not_found: 0xffff0001
+_static_kernel_error_main_returned: 0xffff0002
+_static_kernel_error_small_RAM:     0xffff0003  
+_static_kernel_error_console_not_found: 0xffff0004
 
-	;; Statically allocated variables.
-_static_cursor_column:		0	; The column position of the cursor (always on the last row).
-_static_RAM_base:		0
-_static_RAM_limit:		0
-_static_console_base:		0
-_static_console_limit:		0
-_static_kernel_base:		0
-_static_kernel_limit:		0
+    ;; Statically allocated variables.
+_static_cursor_column:      0   ; The column position of the cursor (always on the last row).
+_static_RAM_base:       0
+_static_RAM_limit:      0
+_static_console_base:       0
+_static_console_limit:      0
+_static_kernel_base:        0
+_static_kernel_limit:       0
 
 ;Trap Table
 TT_BASE:
