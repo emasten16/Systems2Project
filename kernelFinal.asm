@@ -124,6 +124,7 @@ main:
     
 ;;MAIN METHOD DOES STUFF
 
+<<<<<<< HEAD:printtesting.asm
 ;;caller prolog for a test function:
     SUBUS   %SP     %SP     4  ;move SP over 4 words for pfp - no room for return value, we dont have one
     COPY    *%SP    %FP; presrve FP in the PFP word
@@ -133,8 +134,34 @@ main:
     COPY   *%FP  +_string_test_msg  ;copy string to print into arg space
     ;;; FP pointing to arg, SP pointing to ra
     CALL   +_procedure_print  %SP
+=======
 
-    ;;;So whats happening is it is going through all the print code and then jumping back to here and then going NOOP, NOOP, NOOP and nothing printed
+
+;;caller prolog for the print function function:
+    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %G5     %SP     4; %G5 has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    COPY    *%SP    +_string_main_method_msg; the argument that I will pass to the test function
+    COPY    %FP     %SP
+    CALL   +_procedure_print  *%G5
+
+;;caller epilogue
+    ADDUS       %SP     %SP     4       ; Pop arg[0]
+    COPY        %FP     *%SP                ; %FP = pfp
+    ADDUS       %SP     %SP     8       ; Pop pfp / ra
+ 
+
+>>>>>>> juliaedholm/master:kernelFinal.asm
+
+;;call a test function
+;;caller prolog for a test function:
+    SUBUS   %SP     %SP     12; move SP over 3 words
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %FP     %SP     4; %FP has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    COPY    *%SP    3; 3 =  the argument that I will pass to the test function
+    CALL   +function_test  *%FP
 
 ;;caller epilogue
     ADDUS   %SP     %SP     4; pop the arguments. %SP now points to PFP
@@ -142,8 +169,6 @@ main:
     ADDUS   %SP     %SP     8; %SP now points to the return value
     
     COPY    %G5     *%SP; %G5 has the value that was returned from test function
-
-
 
    COPY     %G1     0 ;let %G1 be the counter for how many rom type devices have been seen
    ;;TASK 2: Find and run init.asm
@@ -293,21 +318,25 @@ _procedure_print:
     SUBUS       %SP     %SP     4
     COPY        *%SP        %G4
 
+    COPY    %G5     100 ;test that we made it 
     ;; If not yet initialized, set the console base/limit statics.
     BNEQ        +print_init_loop    *+_static_console_base      0
+    
+    ;;caller prolog for the find_device prcedure
     SUBUS       %SP     %SP     12      ; Push pfp / ra / rv
-    COPY        *%SP        %FP             ; pFP = %FP
+    COPY        *%SP    %FP             ; pFP = %FP
     SUBUS       %SP     %SP     4       ; Push arg[1]
-    COPY        *%SP        1               ; Find the 1st device of the given type.
+    COPY        *%SP    1               ; Find the 1st device of the given type.
     SUBUS       %SP     %SP     4       ; Push arg[0]
-    COPY        *%SP        *+_static_console_device_code   ; Find a console device.
+    COPY        *%SP   *+_static_console_device_code   ; Find a console device.
     COPY        %FP     %SP             ; Update %FP
     ADDUS       %G5     %SP     12      ; %G5 = &ra
     CALL        +_procedure_find_device     *%G5
+    ;;caller epilog
     ADDUS       %SP     %SP     8       ; Pop arg[0,1]
     COPY        %FP     *%SP                ; %FP = pfp
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
-    COPY        %G4     *%SP                ; %G4 = &dt[console]
+    COPY       %G4     *%SP                ; %G4 = &dt[console]
     ADDUS       %SP     %SP     4       ; Pop rv
 
     ;; Panic if the console was not found.
@@ -477,13 +506,13 @@ _procedure_find_device:
 
     ;; Prologue: Preserve the registers used on the stack.
     SUBUS       %SP     %SP     4
-    COPY        *%SP        %G0
+    COPY        *%SP    %G0
     SUBUS       %SP     %SP     4
-    COPY        *%SP        %G1
+    COPY        *%SP    %G1
     SUBUS       %SP     %SP     4
-    COPY        *%SP        %G2
+    COPY        *%SP    %G2
     SUBUS       %SP     %SP     4
-    COPY        *%SP        %G4
+    COPY        *%SP    %G4
     
     ;; Initialize the locals.
     COPY        %G0     *%FP
@@ -519,7 +548,7 @@ find_device_loop_success:
 
     ;; Set the return pointer into the device table that currently points to the given iteration of the given type.
     ADDUS       %G4         %FP     16  ; %G4 = &rv
-    COPY        *%G4            %G2         ; rv = &dt[<device>]
+    COPY        *%G4        %G2         ; rv = &dt[<device>]
     ;; Fall through...
     
 find_device_return:
@@ -681,3 +710,5 @@ end_of_process_table:   27
 .Text
 _string_blank_line: "                                                                                "
 _string_test_msg: "test message\n"
+_string_done_msg:	"done.\n"
+_string_main_method_msg: "Main method has started.\n"
