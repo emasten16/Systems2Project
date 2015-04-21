@@ -98,6 +98,15 @@ SYSC_Handler:
 EXIT_Handler:
 ;;;return process memory to free space
 ;;;search process table for process ID,  make it 0
+    COPY   %G1   +*entry0_process_ID
+_exit_handler_looptop:
+    BEQ   +_exit_handler_found  %G1  +*current_process_ID
+    ADDUS  %G1   48
+    JUMP   +_exit_handler_looptop
+
+_exit_handler_found:
+    COPY   *%G1   0
+    JUMP +_schedule_new_process
 
 CREATE_Handler:
 ;;;create a new process
@@ -298,6 +307,30 @@ entry2_G4:  0
 entry2_G5:  0
 entry2_SP:  0
 entry2_FP:  0
+entry4_process_ID:  0
+entry4_base:    0
+entry4_limit:   0
+entry4_IP:  0
+entry4_G0:  0
+entry4_G1:  0
+entry4_G2:  0
+entry4_G3:  0
+entry4_G4:  0
+entry4_G5:  0
+entry4_SP:  0
+entry4_FP:  0
+entry5_process_ID:  0
+entry5_base:    0
+entry5_limit:   0
+entry5_IP:  0
+entry5_G0:  0
+entry5_G1:  0
+entry5_G2:  0
+entry5_G3:  0
+entry5_G4:  0
+entry5_G5:  0
+entry5_SP:  0
+entry5_FP:  0
 end_of_process_table:   27
 ;;;this is so that we can check to see if we have reached the end of the process table and it is full
 

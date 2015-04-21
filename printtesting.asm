@@ -125,12 +125,14 @@ main:
 ;;MAIN METHOD DOES STUFF
 
 ;;caller prolog for a test function:
-    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
+    SUBUS   %SP     %SP     4  ;move SP over 4 words for pfp - no room for return value, we dont have one
     COPY    *%SP    %FP; presrve FP in the PFP word
-    ADDUS   %FP     %SP     4; %FP has address for word RA
-    SUBUS   %SP     %SP     4; %SP has address of first Argument
-    COPY    *%SP    +_string_test_msg; the argument that I will pass to the test function
-    CALL   +_procedure_print  *%FP
+    SUBUS   %SP    %SP  8  ;move stack 8, room for one arg and ra
+    COPY   %FP   %SP
+    ADDUS   %FP   %FP   4  ;FP pointing at arg
+    COPY   *%FP  +_string_test_msg  ;copy string to print into arg space
+    ;;; FP pointing to arg, SP pointing to ra
+    CALL   +_procedure_print  %SP
 
     ;;;So whats happening is it is going through all the print code and then jumping back to here and then going NOOP, NOOP, NOOP and nothing printed
 
