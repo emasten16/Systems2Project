@@ -274,10 +274,37 @@ Dummy_Handler:
 
 SYSC_Handler:
 ;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
-   ;;; BEQ     +_exit_function   %G0     0
-    ;;;BEQ     CREATE_Handler  %G0     1
-   ;;; BEQ     GET_ROM_COUNT_Handler   %G0     2
-    BEQ     +_procedure_print          %G0     4
+   ;;;BEQ     +EXIT_Handler   %G0     0
+    ;;;BEQ     +CREATE_Handler  %G0     1
+   ;;; BEQ     +GET_ROM_COUNT_Handler   %G0     2
+    BEQ     +PRINT_Handler          %G0     4
+
+EXIT_Handler:
+;;return process memory to free space
+;;search process table for process ID,  make it 0
+;;schedule a new process
+
+GET_ROM_COUNT_Handler:
+;;return the number of ROMs available in the system not including the bios and kernel
+;;jump back to where you were
+
+PRINT_Handler:
+;;caller prolog for the print function function:
+    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %G5     %SP     4; %G5 has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    COPY    *%SP    *%G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
+    COPY    %FP     %SP
+    CALL   +_procedure_print  *%G5
+
+;;caller epilogue
+    ADDUS       %SP     %SP     4       ; Pop arg[0]
+    COPY        %FP     *%SP                ; %FP = pfp
+    ADDUS       %SP     %SP     8       ; Pop pfp / ra
+
+;;after printing, we want to jump back into the process we were in when print was called
+;;************************************************************************************************
 
 ;;; ================================================================================================================================
 ;;; Procedure: print
