@@ -176,10 +176,10 @@ deal_with_process1:
     ADD     %G5     %G5     *+_incriment_by_one_word
     COPY    *%G5    %G3         ;store length of procsess at end of bus
       
-    SETBS  %G4
+    SETBS   %G4
     ADD     %G1     %G4    %G3      ;%G1 holds the MM limit of our process
     SETLM   %G1
-    JUMPMD    %G4   2;jump to start of process in MM (use virtual addressing!!!!)
+    JUMPMD   %G4   6;jump to start of process in MM (use virtual addressing!!!!)
 
 ;;MAIN IS DONE DOING STUFF
 
