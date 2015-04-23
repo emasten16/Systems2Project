@@ -162,7 +162,8 @@ deal_with_process1:
    ;;make a process table!!!!
 ;;store the start and end address of this process in PAS and then use DMA to copy and jump to start
     ADD     %G0      %G0    *+_incriment_by_one_word
-    COPY    %G2     *%G0    ;%G2 now holds start address of process 
+    COPY    %G2     *%G0    ;%G2 now holds start address of process
+    COPY    *+_static_init_mm_base %G2
     ADD     %G0      %G0    *+_incriment_by_one_word
     COPY    %G3     *%G0   ;%G3 has end address of process
     SUB    %G3    %G3   %G2     ;calculate length of process
@@ -174,8 +175,11 @@ deal_with_process1:
     COPY    *%G5    %G4   ;MM start of process
     ADD     %G5     %G5     *+_incriment_by_one_word
     COPY    *%G5    %G3         ;store length of procsess at end of bus
-        
-    JUMPMD    %G4   2;jump to start of process in MM
+      
+    SETBS  %G4
+    ADD     %G1     %G4    %G3      ;%G1 holds the MM limit of our process
+    SETLM   %G1
+    JUMPMD    %G4   2;jump to start of process in MM (use virtual addressing!!!!)
 
 ;;MAIN IS DONE DOING STUFF
 
@@ -281,7 +285,9 @@ PRINT_Handler:
     COPY    *%SP    %FP; presrve FP in the PFP word
     ADDUS   %G5     %SP     4; %G5 has address for word RA
     SUBUS   %SP     %SP     4; %SP has address of first Argument
-    COPY    *%SP    *%G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
+    ;;G1 is the relative address from 0 in process (when in user mode)
+   ;; ADD    %G1      *+_static_init_mm_base  %G1
+    COPY    *%SP    %G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
     COPY    %FP     %SP
     CALL   +_procedure_print  *%G5
 
@@ -613,6 +619,7 @@ _static_console_limit:		0
 _static_kernel_base:		0
 _static_kernel_limit:		0
 
+_static_init_mm_base: 0
 ;;SYSC codes
 _exit_sysc_code: 1
 _create_sysc_code: 2 
