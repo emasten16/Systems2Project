@@ -1,14 +1,16 @@
-;;; The KERNEL code
-;;; Tasks: 1) set up trap table
-;;; 2) set TBR to base of TT
-;;; 2.5) set interrupt buffer register
-;;; 3) load and run one process
+;; CJ Bernstein, Julia Edholm, Emily Masten
+;; Kernel 
+;; Look at the README
+
 
 .Code
 
-;;; The entry point.                                                                                                                
+;;=============================================================================================
+;; This is the initial entry point                                                                           
 __start:    
     ;;Set up trap table
+    ;;Most of these interrupts just print the error, exit the process that threw the interrupt, and schedule a new process
+    ;;SYSTEM_CALL and CLOCK_ALARM actually do stuff
     COPY    *+INVALID_ADDRESS   +Dummy_Handler
     COPY    *+INVALID_REGISTER  +Dummy_Handler
     COPY    *+BUS_ERROR     +Dummy_Handler
@@ -25,32 +27,28 @@ __start:
     SETTBR +TT_BASE
     SETIBR +Interrupt_buffer_IP
     
-    ;;save address of end of bus (will use for DMA)
+    ;;Save address of end of bus for DMA
     COPY    %G0     *+_static_device_table_base
     ADD     %G0     %G0   *+_incriment_by_two_words ; %G0 refers to address of bus limit in PAS 
     COPY   *+end_of_bus     *%G0 
     ADD     %G0     %G0     *+_incriment_by_one_word ;;%G0 now is at the next device in process table 
  
-;;TASK 1: Set up the stack and call main (code from Kaplan's file)
+;;Set up the stack and call main (code from Kaplan's file)
 RAM_search_loop_top:
 	;; End the search with failure if we've reached the end of the table without finding RAM.
 	BEQ		+RAM_search_failure	*%G0		*+_static_none_device_code
-
 	;; If this entry is RAM, then end the loop successfully.
 	BEQ		+RAM_found		*%G0		*+_static_RAM_device_code
-
-	;; This entry is not RAM, so advance to the next entry.
+    ;; This entry is not RAM, so advance to the next entry.
 	ADDUS		%G0			%G0		*+_skip_process_table_element
 	JUMP		+RAM_search_loop_top
 
 RAM_search_failure:
-
 	;; Record a code to indicate the error, and then halt.
 	COPY		%G5		*+_static_kernel_error_RAM_not_found
 	HALT
 
 RAM_found:
-	
 	;; RAM has been found.  If it is big enough, create a stack.
 	ADDUS		%G1		%G0		*+_incriment_by_one_word; %G1 = &RAM[base]
 	COPY		%G1		*%G1 					  ; %G1 = RAM[base]
@@ -86,10 +84,10 @@ RAM_too_small:
 	;; Set an error code and halt.
 	COPY		%G5		*+_static_kernel_error_small_RAM
 	HALT
+;;=============================================================================================
 
-
-main:
-;Test needs one argument, an INT and adds the value stored in a local variable (l = 3). Then returns the result  
+;;=============================================================================================
+;;; main info
 ;;; Callee preserved registers:
 ;;;   [%FP - 4]:  G0
 ;;;   [%FP - 8]:  G1
@@ -106,26 +104,24 @@ main:
 ;;;  <none>
 ;;; Locals:
 ;;;   <none>
-;;callee prologue for MAIN method
+main:
+    ;;callee prologue for MAIN method
     COPY    %FP     %SP; Frame Pointer is now set to correct location
     ;;preserve registers
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G0
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G1
-     SUBUS   %SP     %SP     4
+    SUBUS   %SP     %SP     4
     COPY    *%SP    %G2
-     SUBUS   %SP     %SP     4
+    SUBUS   %SP     %SP     4
     COPY    *%SP    %G3
-     SUBUS   %SP     %SP     4
+    SUBUS   %SP     %SP     4
     COPY    *%SP    %G4
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G5
-    
-;;MAIN METHOD DOES STUFF
 
-
-;;caller prolog for the print function function:
+    ;;caller prolog for the print function telling us that we have reached main
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
     COPY    *%SP    %FP; presrve FP in the PFP word
     ADDUS   %G5     %SP     4; %G5 has address for word RA
@@ -134,14 +130,13 @@ main:
     COPY    %FP     %SP
     CALL   +_procedure_print  *%G5
 
-;;caller epilogue
+    ;;caller epilogue
     ADDUS       %SP     %SP     4       ; Pop arg[0]
     COPY        %FP     *%SP                ; %FP = pfp
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
  
- ;;TASK 2: Find and run init.asm
- 
-;;caller prolog for the find_device prcedure
+    ;;Find and run init.vmx
+    ;;caller prolog for the find_device procedure
     SUBUS       %SP     %SP     12      ; Push pfp / ra / rv
     COPY        *%SP    %FP             ; pFP = %FP
     SUBUS       %SP     %SP     4       ; Push arg[1]
@@ -157,9 +152,9 @@ main:
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
     COPY       %G0     *%SP                ; %G0 = &dt[console]= the address of init process in bus
     ADDUS       %SP     %SP     4       ; Pop rv
-    
+ 
+;;store the start and end address of this process in physical address space and then use DMA to copy and jump to start   
 deal_with_init:
-;;store the start and end address of this process in PAS and then use DMA to copy and jump to start
     ADD     %G0      %G0    *+_incriment_by_one_word
     COPY    %G2     *%G0    ;%G2 now holds start address of process
     COPY    *+_static_init_mm_base %G2
@@ -167,7 +162,6 @@ deal_with_init:
     COPY    %G3     *%G0   ;%G3 has end address of process
     SUB    %G3    %G3   %G2     ;calculate length of process
     ADD     %G4    *+_static_kernel_limit *+_incriment_by_one_word; end of kernel in MM + 1 word = MM start address  
-
     SUB     %G5     *+end_of_bus   *+_skip_process_table_element ;%G5 now holds the address of the 3rd to last last word in bus
     COPY    *%G5     %G2     ;store the start of process in bus
     ADD     %G5     %G5     *+_incriment_by_one_word
@@ -185,8 +179,6 @@ deal_with_init:
     COPY     *+entry0_limit  %G1
     JUMPMD   0   6;jump to start of process in MM (use virtual addressing!!!!)
 
-
-
     ;;Callee epilogue for MAIN restore registers
     COPY    %G5     *%SP
     ADDUS   %SP     %SP     4
@@ -202,23 +194,28 @@ deal_with_init:
     COPY    %SP     %FP    ;pop callee subframe. SP points to PFP
     ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
     JUMP    *%FP; return to caller function 
-;;WILL BE THE END OF MAIN ()
+;;=============================================================================================
 
+;;=============================================================================================
+;;this is temporary, will be deleted when rest of code is in
 Dummy_Handler:
     HALT
+;;=============================================================================================
 
+;;=============================================================================================
+;;System call handler
 SYSC_Handler:
-;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
-;;caller prolog for the pause process loop to preserve registers
+    ;;;%G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
+    ;;caller prolog for the pause process loop to preserve registers
     SUBUS       %SP     %SP     8      ; Push pfp / ra 
     COPY        *%SP    %FP             ; pFP = %FP
     ADDUS       %FP     %SP     4       ;%FP has address for RA
     CALL        +_pause_process    *%FP
-;;caller epilogue
+    ;;caller epilogue
     COPY    %FP     *%SP
     ADDUS   %SP     %SP     4; pop the RA
     
-   ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
+    ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
     ;;;BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
     BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
@@ -231,8 +228,6 @@ EXIT_Handler:
 GET_ROM_COUNT_Handler:
     ;;return the number of ROMs available in the system not including the bios and kernel
     ;;only ever needed by init
-    ;;jump back to where you were
-    ;;;quickly preserve registers so we can do this function
     COPY   %G0   *+_static_device_table_base
     ;;;skip the beginning so we don't count bios or kernel
     ADDUS  %G0   %G0    24
@@ -240,10 +235,8 @@ GET_ROM_COUNT_Handler:
     rom_count_loop_top:
         ;; End the search with failure if we've reached the end of the table without finding RAM.
         BEQ	+rom_count_done	*%G0	*+_static_none_device_code
-    
         ;; If this entry is ROM, then end the loop successfully.
         BEQ	+ROM_found	*%G0	*+_static_ROM_device_code
-    
         ;; This entry is not RAM, so advance to the next entry.
         ADDUS	%G0	%G0	*+_skip_process_table_element
         JUMP	+rom_count_loop_top
@@ -255,10 +248,11 @@ GET_ROM_COUNT_Handler:
     
     rom_count_done:
         COPY    *+entry0_G0     %G1     ;Store the count of ROM in %G0 for init 
+        ;;jump to _run_process_continue to pick up where we left off in init
         JUMP    +_run_process_continue
 
 PRINT_Handler:
-    ;;caller prolog for the print function function:
+    ;;caller prolog for the print function
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
     COPY    *%SP    %FP; presrve FP in the PFP word
     ADDUS   %G5     %SP     4; %G5 has address for word RA
@@ -274,9 +268,11 @@ PRINT_Handler:
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
 
     ;;after printing, we want to jump back into the process we were in when print was called
-   JUMP  +_run_process_continue
- 
-;; Pause process INFO
+    JUMP  +_run_process_continue
+;;=============================================================================================
+
+;;=============================================================================================
+;; Pause process info
 ;;; Callee preserved registers:
 ;;;   [%FP - 8]:  G0
 ;;;   [%FP - 12]:  G1
@@ -294,7 +290,7 @@ PRINT_Handler:
 ;;; Locals:
 ;;;    <none>
 _pause_process:
-;;callee prologue
+    ;;callee prologue
     COPY    %FP     %SP; Frame Pointer is now set to correct location
     ;;preserve registers
     SUBUS   %SP     %SP     4
@@ -310,10 +306,11 @@ _pause_process:
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G5
     
-;;do stuff
+    ;;here we are saving all the info about the process into the process table
     COPY    *+G0_temp  %G0
     ;; loops through process table to find current process
     COPY    %G0    +process_table
+
  pause_proc_looptop:
      BEQ     +found_proc_preserve    *%G0    *+current_process_ID
      ADDUS   %G0    %G0    48
@@ -338,7 +335,7 @@ _pause_process:
      ADDUS   %G0    %G0    4
      COPY    *%G0   %FP
 
-;;callee epilogue
+    ;;callee epilogue
     ;;restore registers
     COPY    %G5     *%SP
     ADDUS   %SP     %SP     4
@@ -354,13 +351,16 @@ _pause_process:
     COPY    %SP     %FP;    pop callee subframe. SP points to  PFP
     ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
     JUMP    *%FP; return to caller function 
+;;=============================================================================================
  
-   
+;;=============================================================================================  
 _run_process_continue:
     ;; go back into process that has already been created
+    ;; this is used for SYSC where we do have to add 16 and move to the next instruction
     ;; current process is already in current_process_ID
     ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
     ;; loop through process table
+
         COPY    %G0    +process_table
     schedule_proc_looptop_continue:
         BEQ     +found_current_proc_continue  *%G0   *+current_process_ID ; branches if process is found
@@ -388,13 +388,16 @@ _run_process_continue:
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
         JUMPMD  *+IP_temp   6
-;;************************************************************************************************
+;;=============================================================================================
 
+;;=============================================================================================
 _run_process_re_do:
     ;; go back into process that has already been created
+    ;; this is used for not SYSC where we do NOT have to add 16 because we want to repeat the instruction that threw the interrup
     ;; current process is already in current_process_ID
     ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
     ;; loop through process table
+    
         COPY    %G0    +process_table
     schedule_proc_looptop_run:
         BEQ     +found_current_proc_run  *%G0   *+current_process_ID ; branches if process is found
@@ -422,8 +425,9 @@ _run_process_re_do:
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
         JUMPMD  0   6
+;;=============================================================================================
 
-;;; ================================================================================================================================
+;;=============================================================================================
 ;;; Procedure: print
 ;;; Callee preserved registers:
 ;;;   [%FP - 4]: G0
@@ -537,7 +541,10 @@ print_loop_end:
     ADDUS       %SP     %SP     4
     ADDUS       %G5     %FP     8       ; %G5 = &ra
     JUMP        *%G5
+;;=============================================================================================
 
+
+;;=============================================================================================
 ;;; Procedure: scroll_console
 ;;; Description: Scroll the console and reset the cursor at the 0th column.
 ;;; Callee reserved registers:
@@ -612,8 +619,9 @@ _procedure_scroll_console:
     ADDUS       %SP     %SP     4
     ADDUS       %G5     %FP     4       ; %G5 = &ra
     JUMP        *%G5
-;;; ================================================================================================================================
- ;;; ================================================================================================================================   
+;;=============================================================================================
+
+;;=============================================================================================  
 ;;; Procedure: find_device
 ;;; Callee preserved registers:
 ;;;   [%FP - 4]:  G0
@@ -696,12 +704,12 @@ find_device_return:
     ADDUS       %SP     %SP     4
     ADDUS       %G5     %FP     12  ; %G5 = &ra
     JUMP        *%G5
-;;; ================================================================================================================================
+;;=============================================================================================
    
     
 .Numeric
 end_of_bus: 0
-	;; Device table location and codes.
+;; Device table location and codes.
 _static_device_table_base:	0x00001000
 _incriment_by_one_word:       0x00000004
 _incriment_by_two_words:   0x00000008
@@ -715,7 +723,7 @@ _static_ROM_device_code:	2
 _static_RAM_device_code:	3
 _static_console_device_code:	4
 
-    ;; Other constants.
+;; Other constants.
 _static_min_RAM_KB:		64
 _static_bytes_per_KB:		1024
 _static_bytes_per_page:		4096	; 4 KB/page
@@ -728,13 +736,13 @@ _static_space_char:     0x20202020 ; Four copies for faster scrolling.  If used 
 _static_cursor_char:        0x5f
 _static_newline_char:       0x0a
 
-	;; Error codes.
+;; Error codes.
 _static_kernel_error_RAM_not_found:	0xffff0001
 _static_kernel_error_main_returned:	0xffff0002
 _static_kernel_error_small_RAM:		0xffff0003	
 _static_kernel_error_console_not_found:	0xffff0004
 
-	;; Statically allocated variables.
+;; Statically allocated variables.
 _static_cursor_column:		0	; The column position of the cursor (always on the last row).
 _static_RAM_base:		0
 _static_RAM_limit:		0
