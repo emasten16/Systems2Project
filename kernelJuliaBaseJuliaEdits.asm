@@ -158,8 +158,7 @@ main:
     COPY       %G0     *%SP                ; %G0 = &dt[console]= the address of init process in bus
     ADDUS       %SP     %SP     4       ; Pop rv
     
-deal_with_process1:
-   ;;make a process table!!!!
+deal_with_init:
 ;;store the start and end address of this process in PAS and then use DMA to copy and jump to start
     ADD     %G0      %G0    *+_incriment_by_one_word
     COPY    %G2     *%G0    ;%G2 now holds start address of process
@@ -175,15 +174,20 @@ deal_with_process1:
     COPY    *%G5    %G4   ;MM start of process
     ADD     %G5     %G5     *+_incriment_by_one_word
     COPY    *%G5    %G3         ;store length of procsess at end of bus
-      
+    
+    ;;DMA will move init into MM. Now change MMU registers and store base/limit in process table
+    COPY    *+entry0_process_ID  1
+    COPY        *+current_process_ID        1
     SETBS   %G4
+    COPY    *+entry0_base   %G4  
     ADD     %G1     %G4    %G3      ;%G1 holds the MM limit of our process
     SETLM   %G1
+    COPY     *+entry0_limit  %G1
     JUMPMD   0   6;jump to start of process in MM (use virtual addressing!!!!)
 
-;;MAIN IS DONE DOING STUFF
 
-    ;;restore registers
+
+    ;;Callee epilogue for MAIN restore registers
     COPY    %G5     *%SP
     ADDUS   %SP     %SP     4
     COPY    %G4     *%SP
@@ -194,13 +198,32 @@ deal_with_process1:
     ADDUS   %SP     %SP     4
     COPY    %G1     *%SP
     ADDUS   %SP     %SP     4
-    COPY    %G0    *%SP;
-    COPY    %SP     %FP;    pop callee subframe. SP points to PFP
+    COPY    %G0    *%SP
+    COPY    %SP     %FP    ;pop callee subframe. SP points to PFP
     ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
     JUMP    *%FP; return to caller function 
 ;;WILL BE THE END OF MAIN ()
 
-;Test needs one argument, an INT and adds the value stored in a local variable (l = 3). Then returns the result  
+Dummy_Handler:
+    HALT
+
+SYSC_Handler:
+;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
+;;caller prolog for the pause process loop
+    SUBUS       %SP     %SP     8      ; Push pfp / ra 
+    COPY        *%SP    %FP             ; pFP = %FP
+    ADDUS       %FP     %SP     4       ;%FP has address for RA
+    CALL        +_pause_process    *%FP
+;;caller epilogue
+    COPY    %FP     *%SP
+    ADDUS   %SP     %SP     4; pop the RA
+    
+   ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
+    ;;;BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
+   ;;; BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
+    BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
+
+;; Pause process INFO
 ;;; Callee preserved registers:
 ;;;   [%FP - 8]:  G0
 ;;;   [%FP - 12]:  G1
@@ -208,21 +231,19 @@ deal_with_process1:
 ;;;   [%FP - 20]: G4
 ;;;   [%FP - 24]: G5
 ;;; Parameters:
-;;;   [%FP + 0]: the int that will be added
+;;;  <none>
 ;;; Caller preserved registers:
-;;;   [%FP + 4]: FP
+;;;   [%FP + 0]: FP
 ;;; Return address:
-;;;   [%FP + 8]
+;;;   [%FP + 4]
 ;;; Return value:
-;;;   [%FP + 12]: The sum of 2 ints
+;;;     <none>
 ;;; Locals:
-;;;     [%FP - 4]: the variable that will be added to the argument
-function_test:
+;;;    <none>
+
+_pause_process:
 ;;callee prologue
     COPY    %FP     %SP; Frame Pointer is now set to correct location
-    ;store space for local variables
-    SUBUS   %SP     %SP     4; %SP now holds address of variable, l
-    COPY    *%SP    3; l=3
     ;;preserve registers
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G0
@@ -237,13 +258,35 @@ function_test:
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G5
     
-    ;;function does stuff
-    COPY    %G0     *%FP; register %G0 now has the value of argument passed to our test function
-    ADD     %G0     %G0     3;
-    
+;;do stuff
+   COPY    *+G0_temp  %G0
+   ;; loops through process table to find current process
+   COPY    %G0    +process_table
+pause_proc_looptop:
+    BEQ     +found_proc_preserve    *%G0    *+current_process_ID
+    ADDUS   %G0    %G0    48
+    JUMP    +pause_proc_looptop
+ found_proc_preserve:
+    ADDUS   %G0    %G0    8
+    COPY    *%G0   *+Interrupt_buffer_IP   ;;; IP
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   *+G0_temp
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %G1
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %G2
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %G3
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %G4
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %G5
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %SP
+    ADDUS   %G0    %G0    4
+    COPY    *%G0   %FP
+
 ;;callee epilogue
-    ADD     %G1     %FP     12;%G1 now holds the address of the RV
-    COPY    *%G1     %G0;   Store the retun value at RV
     ;;restore registers
     COPY    %G5     *%SP
     ADDUS   %SP     %SP     4
@@ -256,19 +299,10 @@ function_test:
     COPY    %G1     *%SP
     ADDUS   %SP     %SP     4
     COPY    %G0    *%SP;
-    COPY    %SP     %FP;    pop callee subframe. SP points to first argument
-    ADDUS   %FP     %SP     8; now FP points to RA (as it did before function called)
+    COPY    %SP     %FP;    pop callee subframe. SP points to  PFP
+    ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
     JUMP    *%FP; return to caller function
-    
-Dummy_Handler:
-    HALT
 
-SYSC_Handler:
-;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
-   ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
-    ;;;BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
-   ;;; BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
-    BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
 
 EXIT_Handler:
 ;;return process memory to free space
@@ -644,6 +678,12 @@ DEVICE_FAILURE: 0
 ;Interrupt buffer register
 Interrupt_buffer_IP: 0
 INterrupt_buffer_MISC: 0
+
+IP_temp: 0
+G5_temp: 0
+G0_temp: 0
+kernel_indicator: 0
+current_process_ID: 0
 
 ;;;PROCESS TABLE - room for five processes
 process_table:
