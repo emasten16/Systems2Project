@@ -18,7 +18,8 @@ __start:
     COPY    *+INVALID_ADDRESS   +Dummy_Handler
     COPY    *+INVALID_REGISTER  +Dummy_Handler
     COPY    *+BUS_ERROR     +Dummy_Handler
-    COPY    *+CLOCK_ALARM     +Dummy_Handler
+    COPY    *+CLOCK_ALARM     +Switch_Handler
+    ;;;print fyi, pause current process, schedule a new process
     COPY    *+DIVIDE_BY_ZERO     +Dummy_Handler
     COPY    *+OVERFLOW    +Dummy_Handler
     COPY    *+INVALID_INSTRUCTION    +Dummy_Handler
@@ -27,6 +28,9 @@ __start:
     COPY    *+SYSTEM_CALL     +SYSC_Handler
     COPY    *+INVALID_DEVICE_VALUE    +Dummy_Handler
     COPY    *+DEVICE_FAILURE     +Dummy_Handler
+  
+   ;;; +Dummy_Handler
+    ;;;print error, exit current process, schedule a new process
 
     SETTBR +TT_BASE
     SETIBR +Interrupt_buffer_IP
@@ -86,14 +90,23 @@ deal_with_process1:
 SYSC_Handler:
 ;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
     CALL    +register_preserver     +return_address
-    BEQ     EXIT_Handler    %G0     0
-    BEQ     CREATE_Handler  %G0     1
-    BEQ     GET_ROM_COUNT_Handler   %G0     2
-    BEQ     PRINT_Handler           %G0     4
+    BEQ     +EXIT_Handler    %G0     0
+    BEQ     +CREATE_Handler  %G0     1
+    BEQ     +GET_ROM_COUNT_Handler   %G0     2
+    BEQ     +PRINT_Handler           %G0     4
 
 EXIT_Handler:
 ;;;return process memory to free space
 ;;;search process table for process ID,  make it 0
+    COPY   %G1   +*entry0_process_ID
+_exit_handler_looptop:
+    BEQ   +_exit_handler_found  %G1  +*current_process_ID
+    ADDUS  %G1   48
+    JUMP   +_exit_handler_looptop
+
+_exit_handler_found:
+    COPY   *%G1   0
+    JUMP +_schedule_new_process
 
 CREATE_Handler:
 ;;;create a new process
@@ -294,6 +307,30 @@ entry2_G4:  0
 entry2_G5:  0
 entry2_SP:  0
 entry2_FP:  0
+entry4_process_ID:  0
+entry4_base:    0
+entry4_limit:   0
+entry4_IP:  0
+entry4_G0:  0
+entry4_G1:  0
+entry4_G2:  0
+entry4_G3:  0
+entry4_G4:  0
+entry4_G5:  0
+entry4_SP:  0
+entry4_FP:  0
+entry5_process_ID:  0
+entry5_base:    0
+entry5_limit:   0
+entry5_IP:  0
+entry5_G0:  0
+entry5_G1:  0
+entry5_G2:  0
+entry5_G3:  0
+entry5_G4:  0
+entry5_G5:  0
+entry5_SP:  0
+entry5_FP:  0
 end_of_process_table:   27
 ;;;this is so that we can check to see if we have reached the end of the process table and it is full
 
