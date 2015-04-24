@@ -130,11 +130,13 @@ main:
     COPY    *%SP    %FP; presrve FP in the PFP word
     ADDUS   %G5     %SP     4; %G5 has address for word RA
     SUBUS   %SP     %SP     4; %SP has address of first Argument
-    COPY    *%SP    +_string_main_method_msg; the argument that I will pass to the test function
+    COPY    *%SP    +_string_main_method_msg; pointer of string to be printed
     COPY    %FP     %SP
     CALL   +_procedure_print  *%G5
 
 ;;caller epilogue
+
+;;I THINK THE CALLER EPILOG IS MESSED UP!!!!
     ADDUS       %SP     %SP     4       ; Pop arg[0]
     COPY        %FP     *%SP                ; %FP = pfp
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
@@ -151,7 +153,7 @@ main:
     COPY        %FP     %SP             ; Update %FP
     ADDUS       %G5     %SP     12      ; %G5 = &ra
     CALL        +_procedure_find_device     *%G5
-    ;;caller epilog
+    ;;caller epilogue
     ADDUS       %SP     %SP     8       ; Pop arg[0,1]
     COPY        %FP     *%SP                ; %FP = pfp
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
@@ -179,7 +181,7 @@ deal_with_process1:
     SETBS   %G4
     ADD     %G1     %G4    %G3      ;%G1 holds the MM limit of our process
     SETLM   %G1
-    JUMPMD   %G4   6;jump to start of process in MM (use virtual addressing!!!!)
+    JUMPMD   %G4   2;jump to start of process in MM (use virtual addressing!!!!)
 
 ;;MAIN IS DONE DOING STUFF
 
@@ -200,65 +202,7 @@ deal_with_process1:
     JUMP    *%FP; return to caller function 
 ;;WILL BE THE END OF MAIN ()
 
-;Test needs one argument, an INT and adds the value stored in a local variable (l = 3). Then returns the result  
-;;; Callee preserved registers:
-;;;   [%FP - 8]:  G0
-;;;   [%FP - 12]:  G1
-;;;   [%FP - 16]: G2
-;;;   [%FP - 20]: G4
-;;;   [%FP - 24]: G5
-;;; Parameters:
-;;;   [%FP + 0]: the int that will be added
-;;; Caller preserved registers:
-;;;   [%FP + 4]: FP
-;;; Return address:
-;;;   [%FP + 8]
-;;; Return value:
-;;;   [%FP + 12]: The sum of 2 ints
-;;; Locals:
-;;;     [%FP - 4]: the variable that will be added to the argument
-function_test:
-;;callee prologue
-    COPY    %FP     %SP; Frame Pointer is now set to correct location
-    ;store space for local variables
-    SUBUS   %SP     %SP     4; %SP now holds address of variable, l
-    COPY    *%SP    3; l=3
-    ;;preserve registers
-    SUBUS   %SP     %SP     4
-    COPY    *%SP    %G0
-    SUBUS   %SP     %SP     4
-    COPY    *%SP    %G1
-     SUBUS   %SP     %SP     4
-    COPY    *%SP    %G2
-     SUBUS   %SP     %SP     4
-    COPY    *%SP    %G3
-     SUBUS   %SP     %SP     4
-    COPY    *%SP    %G4
-    SUBUS   %SP     %SP     4
-    COPY    *%SP    %G5
-    
-    ;;function does stuff
-    COPY    %G0     *%FP; register %G0 now has the value of argument passed to our test function
-    ADD     %G0     %G0     3;
-    
-;;callee epilogue
-    ADD     %G1     %FP     12;%G1 now holds the address of the RV
-    COPY    *%G1     %G0;   Store the retun value at RV
-    ;;restore registers
-    COPY    %G5     *%SP
-    ADDUS   %SP     %SP     4
-    COPY    %G4     *%SP
-    ADDUS   %SP     %SP     4
-    COPY    %G3     *%SP
-    ADDUS   %SP     %SP     4
-    COPY    %G2     *%SP
-    ADDUS   %SP     %SP     4
-    COPY    %G1     *%SP
-    ADDUS   %SP     %SP     4
-    COPY    %G0    *%SP;
-    COPY    %SP     %FP;    pop callee subframe. SP points to first argument
-    ADDUS   %FP     %SP     8; now FP points to RA (as it did before function called)
-    JUMP    *%FP; return to caller function
+
     
 Dummy_Handler:
     HALT
@@ -279,10 +223,11 @@ GET_ROM_COUNT_Handler:
 ;;return the number of ROMs available in the system not including the bios and kernel
 ;;jump back to where you were
 
+
 PRINT_Handler:
 ;;caller prolog for the print function function:
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
-    COPY    *%SP    %FP; presrve FP in the PFP word
+    COPY    *%SP    %FP     ; presrve FP in the PFP word
     ADDUS   %G5     %SP     4; %G5 has address for word RA
     SUBUS   %SP     %SP     4; %SP has address of first Argument
     ;;G1 is the relative address from 0 in process (when in user mode)
@@ -326,7 +271,6 @@ _procedure_print:
     SUBUS       %SP     %SP     4
     COPY        *%SP        %G4
 
-    COPY    %G5     100 ;test that we made it 
     ;; If not yet initialized, set the console base/limit statics.
     BNEQ        +print_init_loop    *+_static_console_base      0
     
