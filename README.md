@@ -16,3 +16,4 @@ ssh -Y jedholm15@vega.cs.amherst.edu
 
 "showconsole graphic" as soon as you start simulating to see what you print to the console
 
+
