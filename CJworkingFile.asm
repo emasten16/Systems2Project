@@ -305,7 +305,7 @@ found_proc_preserve_cj:
        COPY    *%G0   %FP
     ;;;then branch to relevant handler based on codes above
     BEQ     +EXIT_Handler   %G0     0
-    ;;BEQ     +CREATE_Handler  %G0     1
+    BEQ     +CREATE_Handler  %G0     1
     BEQ     +GET_ROM_COUNT_Handler   %G0     2
     BEQ     +PRINT_Handler          %G0     4
     ;;;if we get to here something is wrong
@@ -324,6 +324,93 @@ found_proc_preserve_cj:
     COPY        %FP     *%SP                ; %FP = pfp
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
     JUMP +MEGA_HALT
+
+CREATE_Handler:
+;;;create a new process
+;;;%g1 holds the ROM# of the process we want to create
+
+;;;search through the process table and find an empty process
+    COPY    %G2      0
+;;;G4 is a counter so we know what to make the process ID    
+    COPY    %G4      1
+    COPY    %G3      +process_table
+    ADDUS     %G3      %G3      4
+    ;;;we use addus here instead of add right?
+create_process_table_looptop:
+    BEQ     +found_empty_process    %G3      %G2
+    ADDUS   %G3    %G3   48
+    BEQ     +no_room_in_process_table    *%G3    16
+    ADDUS   %G4    %G4    1
+    JUMP    +create_process_table_looptop
+
+found_empty_process: 
+;;;assign process ID
+    COPY    *%G3    %G4
+;;;put base and limit
+;;;at this point, G3 is pointing to the process ID and G1 is telling us the rom number
+    COPY    %G0    *+_static_device_table_base
+    ;;;G2 holds the ROM code which is 2, G4 holds our counter (we want this to equal g1)
+    COPY    %G2     *+_static_ROM_device_code
+    COPY    %G4     0
+found_empty_process_looptop:
+    BNEQ     +create_not_a_rom    *%G0   %G2
+    ADDUS    %G4    %G4   1
+    BEQ      +create_yes_a_rom     %G4    %G1
+    ;;if not the right rom, continue into the next insturctions to jump to the next thing in the bus    
+   
+create_not_a_rom:
+;;jump to next item in bus if not a rom
+    ADDUS   %G0    %G0    12
+    JUMP    +found_empty_process_looptop
+
+create_yes_a_rom:
+    ;;;g3 is still pointing at the process ID, g0 is pointing at the bus table entry for this rom
+    ;;;add base to process table
+    ADDUS   %G0    %G0    4
+    ADDUS   %G3    %G3    4
+    COPY    *%G3   *%G0
+    ;;;add limit to process table
+    ADDUS   %G0    %G0    4
+    ADDUS   %G3    %G3    4
+    COPY    *%G3   *%G0
+
+;;;set everything else to 0    
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+
+;;;it is in the process table, now go back to running the process we were in!
+    JUMP _run_process   
+
+no_room_in_process_table:
+;;;process table is full
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_process_table_full_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP   +MEGA_HALT
 
 EXIT_Handler:
 ;;return process memory to free space
@@ -406,7 +493,9 @@ end_of_device_table:
 ;;;CJ CJ CJ CJ CJ ######### YOU ARE NOT DONE HERE. ###### Use the existing method masten wrote, waiting to hear from julia on how this function will interact with init in the way she needs it to
     ;;;JUMP back to where?! What is in the interrupt buffer?!?! Does the interrupt buffer automatically add 16 so that it goes to the next instruction
     ;;6 to turn on virtual addressing and user mode. Do we have to set the base and limit registers?
-    JUMPMD   *+Interrupt_buffer_IP  6
+   ;; JUMPMD   *+Interrupt_buffer_IP  6
+   ;;do this all in run_process
+   JUMP _run_process
 
 
 register_preserver:
@@ -438,7 +527,7 @@ PRINT_Handler:
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
 
 ;;after printing, we want to jump back into the process we were in when print was called
-;;************************************************************************************************
+    JUMP  _run_process
 
 _run_process:
     ;; go back into process that has already been created
@@ -446,29 +535,29 @@ _run_process:
     ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
     ;; loop through process table
         COPY    %G0    +process_table
-    schedule_proc_looptop1:
-        BEQ     +found_current_proc  *%G0   *+current_process_ID ; branches if process is found
+    schedule_proc_looptop_run:
+        BEQ     +found_current_proc_run  *%G0   *+current_process_ID ; branches if process is found
         ADDUS   %G0    %G0    48  ; go to next spot in
-        JUMP    +schedule_proc_looptop1
-    found_current_proc:
+        JUMP    +schedule_proc_looptop_run
+    found_current_proc_run:
         ADDUS   %G0    %G0    4
         SETBS   *%G0
         ADDUS   %G0    %G0    4
         SETLM   *%G0
         ADDUS   %G0    %G0    4
-        COPY    IP_temp    *G0  ;; IP
+        COPY    +IP_temp    *%G0  ;; IP
         ADDUS   %G0    %G0    4
         COPY    +G0_temp    *%G0
         ADDUS   %G0    %G0    4
-        COPY    %G1    *G0
+        COPY    %G1    *%G0
         ADDUS   %G0    %G0    4
-        COPY    %G2    *G0
+        COPY    %G2    *%G0
         ADDUS   %G0    %G0    4
-        COPY    %G3    *G0
+        COPY    %G3    *%G0
         ADDUS   %G0    %G0    4
-        COPY    %G4    *G0
+        COPY    %G4    *%G0
         ADDUS   %G0    %G0    4
-        COPY    %G5    *G0
+        COPY    %G5    *%G0
         ;; kernel indicator
         COPY    +kernel_indicator   0 ;; 0 means we're in process
         JUMPMD  IP_temp    6
@@ -1293,6 +1382,42 @@ entry5_G4:  0
 entry5_G5:  0
 entry5_SP:  0
 entry5_FP:  0
+entry6_process_ID:  0
+entry6_base:    0
+entry6_limit:   0
+entry6_IP:  0
+entry6_G0:  0
+entry6_G1:  0
+entry6_G2:  0
+entry6_G3:  0
+entry6_G4:  0
+entry6_G5:  0
+entry6_SP:  0
+entry6_FP:  0
+entry7_process_ID:  0
+entry7_base:    0
+entry7_limit:   0
+entry7_IP:  0
+entry7_G0:  0
+entry7_G1:  0
+entry7_G2:  0
+entry7_G3:  0
+entry7_G4:  0
+entry7_G5:  0
+entry7_SP:  0
+entry7_FP:  0
+entry8_process_ID:  0
+entry8_base:    0
+entry8_limit:   0
+entry8_IP:  0
+entry8_G0:  0
+entry8_G1:  0
+entry8_G2:  0
+entry8_G3:  0
+entry8_G4:  0
+entry8_G5:  0
+entry8_SP:  0
+entry8_FP:  0
 end_of_process_table:   27
 ;;;this is so that we can check to see if we have reached the end of the process table and it is full
 
@@ -1317,7 +1442,10 @@ _string_finished_proc_msg: "Finished process\n"
 _process_not_found_msg: "Process table search error. Halting\n"
 _string_sysc_call_code: "SYSC without a correct SYSC code. Hatling \n"
 _mega_halt_msg: "Mega halt. Kernel level interrupt\n"
+_process_table_full_msg: "Process table full. Halting\n"
 
 _in_exit_msg: "in exit\n"
 _in_main_handler_msg: "in main handler\n"
 _in_schedule_msg: "in schedule\n"
+
+
