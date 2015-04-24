@@ -209,7 +209,7 @@ Dummy_Handler:
 
 SYSC_Handler:
 ;;; %G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
-;;caller prolog for the pause process loop
+;;caller prolog for the pause process loop to preserve registers
     SUBUS       %SP     %SP     8      ; Push pfp / ra 
     COPY        *%SP    %FP             ; pFP = %FP
     ADDUS       %FP     %SP     4       ;%FP has address for RA
@@ -220,9 +220,62 @@ SYSC_Handler:
     
    ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
     ;;;BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
-   ;;; BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
+    BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
 
+EXIT_Handler:
+;;return process memory to free space
+;;search process table for process ID,  make it 0
+;;schedule a new process
+
+GET_ROM_COUNT_Handler:
+    ;;return the number of ROMs available in the system not including the bios and kernel
+    ;;only ever needed by init
+    ;;jump back to where you were
+    ;;;quickly preserve registers so we can do this function
+    COPY   %G0   *+_static_device_table_base
+    ;;;skip the beginning so we don't count bios or kernel
+    ADDUS  %G0   %G0    24
+    COPY   %G1   0 ; %G1 = counter for number of ROM files we have seen
+    rom_count_loop_top:
+        ;; End the search with failure if we've reached the end of the table without finding RAM.
+        BEQ	+rom_count_done	*%G0	*+_static_none_device_code
+    
+        ;; If this entry is ROM, then end the loop successfully.
+        BEQ	+ROM_found	*%G0	*+_static_ROM_device_code
+    
+        ;; This entry is not RAM, so advance to the next entry.
+        ADDUS	%G0	%G0	*+_skip_process_table_element
+        JUMP	+rom_count_loop_top
+    
+    ROM_found:
+        ADDUS   %G1     %G1     1
+        ADDUS	%G0	%G0     *+_skip_process_table_element
+        JUMP   +rom_count_loop_top 
+    
+    rom_count_done:
+        COPY    *+entry0_G0     %G1     ;Store the count of ROM in %G0 for init 
+        JUMP    +_run_process_continue
+
+PRINT_Handler:
+    ;;caller prolog for the print function function:
+    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %G5     %SP     4; %G5 has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    ;;G1 is the relative address from 0 in process (when in user mode)
+    ADD    %G1      *+_static_init_mm_base  %G1
+    COPY    *%SP    %G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
+    COPY    %FP     %SP
+    CALL   +_procedure_print  *%G5
+    ;;caller epilogue
+    ADDUS       %SP     %SP     4       ; Pop arg[0]
+    COPY        %FP     *%SP                ; %FP = pfp
+    ADDUS       %SP     %SP     8       ; Pop pfp / ra
+
+    ;;after printing, we want to jump back into the process we were in when print was called
+   JUMP  +_run_process_continue
+ 
 ;; Pause process INFO
 ;;; Callee preserved registers:
 ;;;   [%FP - 8]:  G0
@@ -258,32 +311,32 @@ _pause_process:
     COPY    *%SP    %G5
     
 ;;do stuff
-   COPY    *+G0_temp  %G0
-   ;; loops through process table to find current process
-   COPY    %G0    +process_table
-pause_proc_looptop:
-    BEQ     +found_proc_preserve    *%G0    *+current_process_ID
-    ADDUS   %G0    %G0    48
-    JUMP    +pause_proc_looptop
+    COPY    *+G0_temp  %G0
+    ;; loops through process table to find current process
+    COPY    %G0    +process_table
+ pause_proc_looptop:
+     BEQ     +found_proc_preserve    *%G0    *+current_process_ID
+     ADDUS   %G0    %G0    48
+     JUMP    +pause_proc_looptop
  found_proc_preserve:
-    ADDUS   %G0    %G0    12
-    COPY    *%G0   *+Interrupt_buffer_IP   ;;; IP
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   *+G0_temp
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %G1
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %G2
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %G3
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %G4
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %G5
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %SP
-    ADDUS   %G0    %G0    4
-    COPY    *%G0   %FP
+     ADDUS   %G0    %G0    12
+     COPY    *%G0   *+Interrupt_buffer_IP   ;;; IP
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   *+G0_temp
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %G1
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %G2
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %G3
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %G4
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %G5
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %SP
+     ADDUS   %G0    %G0    4
+     COPY    *%G0   %FP
 
 ;;callee epilogue
     ;;restore registers
@@ -300,37 +353,8 @@ pause_proc_looptop:
     COPY    %G0    *%SP;
     COPY    %SP     %FP;    pop callee subframe. SP points to  PFP
     ADDUS   %FP     %SP     4; now FP points to RA (as it did before function called)
-    JUMP    *%FP; return to caller function
-
-
-EXIT_Handler:
-;;return process memory to free space
-;;search process table for process ID,  make it 0
-;;schedule a new process
-
-GET_ROM_COUNT_Handler:
-;;return the number of ROMs available in the system not including the bios and kernel
-;;jump back to where you were
-
-PRINT_Handler:
-;;caller prolog for the print function function:
-    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
-    COPY    *%SP    %FP; presrve FP in the PFP word
-    ADDUS   %G5     %SP     4; %G5 has address for word RA
-    SUBUS   %SP     %SP     4; %SP has address of first Argument
-    ;;G1 is the relative address from 0 in process (when in user mode)
-    ADD    %G1      *+_static_init_mm_base  %G1
-    COPY    *%SP    %G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
-    COPY    %FP     %SP
-    CALL   +_procedure_print  *%G5
-
-;;caller epilogue
-    ADDUS       %SP     %SP     4       ; Pop arg[0]
-    COPY        %FP     *%SP                ; %FP = pfp
-    ADDUS       %SP     %SP     8       ; Pop pfp / ra
-
-;;after printing, we want to jump back into the process we were in when print was called
-   JUMP  +_run_process_continue
+    JUMP    *%FP; return to caller function 
+ 
    
 _run_process_continue:
     ;; go back into process that has already been created
