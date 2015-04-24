@@ -18,7 +18,7 @@ __start:
     COPY    *+_ROM_count  %G0   ;%G0 contains the regiser value for number of ROM files
     
 ;;Create all processes    
-    COPY    %G1   2 ; Begin with process 2, because process 1 is init
+    COPY    %G1   2; Begin with process 2, because process 1 is init
 _create_process_loop_top:
     ;; End the search when we have created all process and our counter 
     BGT    +_create_process_loop_end     %G1  *+_ROM_count     
