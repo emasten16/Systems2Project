@@ -240,7 +240,6 @@ SYSC_Handler:
 ;;;     <none>
 ;;; Locals:
 ;;;    <none>
-
 _pause_process:
 ;;callee prologue
     COPY    %FP     %SP; Frame Pointer is now set to correct location
@@ -267,7 +266,7 @@ pause_proc_looptop:
     ADDUS   %G0    %G0    48
     JUMP    +pause_proc_looptop
  found_proc_preserve:
-    ADDUS   %G0    %G0    8
+    ADDUS   %G0    %G0    12
     COPY    *%G0   *+Interrupt_buffer_IP   ;;; IP
     ADDUS   %G0    %G0    4
     COPY    *%G0   *+G0_temp
@@ -331,7 +330,74 @@ PRINT_Handler:
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
 
 ;;after printing, we want to jump back into the process we were in when print was called
+   JUMP  +_run_process_continue
+   
+_run_process_continue:
+    ;; go back into process that has already been created
+    ;; current process is already in current_process_ID
+    ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
+    ;; loop through process table
+        COPY    %G0    +process_table
+    schedule_proc_looptop_continue:
+        BEQ     +found_current_proc_continue  *%G0   *+current_process_ID ; branches if process is found
+        ADDUS   %G0    %G0    48  ; go to next spot in
+        JUMP    +schedule_proc_looptop_continue
+    found_current_proc_continue:
+        ADDUS   %G0    %G0    4
+        SETBS   *%G0
+        ADDUS   %G0    %G0    4
+        SETLM   *%G0
+        ADDUS   %G0    %G0    4
+        ADD     *+IP_temp      *%G0      16 ;;move on to the next word when you return to the process
+        ADDUS   %G0    %G0    4
+        COPY    *+G0_temp    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G1    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G2    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G3    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G4    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G5    *%G0
+        ;; kernel indicator
+        COPY    *+kernel_indicator   0 ;; 0 means we're in process
+        JUMPMD  *+IP_temp   6
 ;;************************************************************************************************
+
+_run_process_re_do:
+    ;; go back into process that has already been created
+    ;; current process is already in current_process_ID
+    ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
+    ;; loop through process table
+        COPY    %G0    +process_table
+    schedule_proc_looptop_run:
+        BEQ     +found_current_proc_run  *%G0   *+current_process_ID ; branches if process is found
+        ADDUS   %G0    %G0    48  ; go to next spot in
+        JUMP    +schedule_proc_looptop_run
+    found_current_proc_run:
+        ADDUS   %G0    %G0    4
+        SETBS   *%G0
+        ADDUS   %G0    %G0    4
+        SETLM   *%G0
+        ADDUS   %G0    %G0    4
+        COPY    *+IP_temp    *%G0  ;; IP
+        ADDUS   %G0    %G0    4
+        COPY    *+G0_temp    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G1    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G2    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G3    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G4    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G5    *%G0
+        ;; kernel indicator
+        COPY    *+kernel_indicator   0 ;; 0 means we're in process
+        JUMPMD  0   6
 
 ;;; ================================================================================================================================
 ;;; Procedure: print
