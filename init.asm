@@ -8,7 +8,6 @@ __start:
 ;;print a message to the console
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_start_init_msg
-
     SYSC
 
 ;;Get ROM Count
@@ -25,7 +24,11 @@ _create_process_loop_top:
    
     COPY    %G0     *+_create_sysc_code   
     SYSC
-    ;;process %G1 created, now move on to the next 
+    ;;process %G1 created, now move on to the next
+    ;;print 'process created' message to the console
+    COPY    %G0  *+_print_sysc_code
+    COPY    %G1    +_string_process_created_msg
+    SYSC
     ADD     %G1     %G1     1
     JUMP    +_create_process_loop_top
 
@@ -50,4 +53,5 @@ _print_sysc_code: 4
 
 .Text                                                                             
 _string_start_init_msg: "init has started\n"
+_string_process_created_msg: "init created process\n"
 _string_exit_init_msg: "init created all processes\n"

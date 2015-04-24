@@ -183,6 +183,7 @@ deal_with_init:
     ADD     %G1     %G4    %G3      ;%G1 holds the MM limit of our process
     SETLM   %G1
     COPY     *+entry0_limit  %G1
+    COPY    *+_static_free_space_base   %G1
     JUMPMD   0   6;jump to start of process in MM (use virtual addressing!!!!)
 
 
@@ -219,9 +220,113 @@ SYSC_Handler:
     ADDUS   %SP     %SP     4; pop the RA
     
    ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
-    ;;;BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
+    BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
     BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
+    
+CREATE_Handler:
+;;;create a new process
+;;;%g1 holds the ROM# of the process we want to create
+    ADD         %G1     %G1     2       ;init will pass the rom number after bios and kernel, so add 2
+
+;;;search through the process table and find an empty process
+    COPY    %G2      0
+;;;G4 is a counter so we know what to make the process ID    
+    COPY    %G4      2
+    COPY    %G3     +process_table
+
+    ;;;we use addus here instead of add right?
+create_process_table_looptop:
+    BEQ     +found_empty_process    *%G3      %G2
+    ADDUS   %G3    %G3   48
+    BEQ     +no_room_in_process_table    *%G3    16
+    ADDUS   %G4    %G4    1
+    JUMP    +create_process_table_looptop
+
+found_empty_process: 
+;;;assign process ID
+    COPY        *%G3    %G4
+;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
+ 
+    ;;caller prolog for the find_device prcedure
+    SUBUS       %SP     %SP     12      ; Push pfp / ra / rv
+    COPY        *%SP    %FP             ; pFP = %FP
+    SUBUS       %SP     %SP     4       ; Push arg[1]
+    COPY        *%SP    %G1               ; Find the nth ROM device
+    SUBUS       %SP     %SP     4       ; Push arg[0]
+    COPY        *%SP   *+_static_ROM_device_code   ; Find a console device.
+    COPY        %FP     %SP             ; Update %FP
+    ADDUS       %G5     %SP     12      ; %G5 = &ra
+    CALL        +_procedure_find_device     *%G5
+    ;;caller epilogue
+    ADDUS       %SP     %SP     8       ; Pop arg[0,1]
+    COPY        %FP     *%SP                ; %FP = pfp
+    ADDUS       %SP     %SP     8       ; Pop pfp / ra
+    COPY       %G0     *%SP                ; %G0 = &dt[console]= the address process in bus
+    ADDUS       %SP     %SP     4       ; Pop rv
+    
+    ;;%G0 is address of process in bus
+    ADD     %G0      %G0    *+_incriment_by_one_word
+    COPY    %G2     *%G0    ;%G2 now holds start address of process
+    ADD     %G0      %G0    *+_incriment_by_one_word
+    COPY    %G5     *%G0   ;%G5 has end address of process
+    SUB    %G4      %G5     %G2     ;calculate length of process
+
+    SUB     %G5     *+end_of_bus   *+_skip_process_table_element ;%G5 now holds the address of the 3rd to last last word in bus
+    COPY    *%G5     %G2     ;store the start of process in bus
+    ADD     %G5     %G5     *+_incriment_by_one_word
+    COPY    *%G5    *+_static_free_space_base   ;MM start of process
+    ADD     %G5     %G5     *+_incriment_by_one_word
+    COPY    *%G5    %G4         ;store length of procsess at end of bus
+    
+    ;;DMA will move process into MM
+    ;;;G3 is still pointing at the process ID, %G0 holds Bus Table address
+    
+    ;;;add base to process table
+    ADD   %G3    %G3     4
+    COPY    *%G3    *+_static_free_space_base 
+    ;;;add limit to process table
+    ADD     %G1     *+_static_free_space_base     %G4      ;%G1 holds the MM limit of our process
+    ADD   %G3    %G3    4
+    COPY    *%G3   %G1
+    
+    COPY    %G0     %G3 ;;use %G0 to go through process table and set everything else to 0    
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+    ADDUS  %G0   %G0   4
+    COPY   *%G0   0
+
+;;;new process is in the process table, now go back to running the process we were in!
+    JUMP +_run_process_continue   
+
+no_room_in_process_table:
+;;;process table is full
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_process_table_full_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP   +MEGA_HALT
 
 EXIT_Handler:
 ;;return process memory to free space
@@ -698,6 +803,21 @@ find_device_return:
     JUMP        *%G5
 ;;; ================================================================================================================================
    
+;; MEGA HALT
+MEGA_HALT:
+;; prints string stored in _mega_halt_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_mega_halt_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+   HALT 
     
 .Numeric
 end_of_bus: 0
@@ -742,7 +862,7 @@ _static_console_base:		0
 _static_console_limit:		0
 _static_kernel_base:		0
 _static_kernel_limit:		0
-
+_static_free_space_base:    0
 _static_init_mm_base: 0
 ;;SYSC codes
 _exit_sysc_code: 1
@@ -857,3 +977,24 @@ _string_blank_line: "                                                           
 _string_test_msg: "test message\n"
 _string_done_msg:	"done.\n"
 _string_main_method_msg: "Main method has started.\n"
+_string_invalid_address_msg: "Invalid Adress Interrupt\n"
+_string_invalid_register_msg: "Invalid Register Interrupt\n"
+_string_bus_error_msg: "Bus Error Interrupt\n"
+_string_divide_by_zero_msg: "Divide by Zero Interrupt\n"
+_string_overflow_msg: "Overflow Interrupt\n"
+_string_invalid_instruction_msg: "Invalid Instruction Interrupt\n"
+_string_permission_violation_msg: "Permission Violation Interrupt\n"
+_string_invalid_shift_amount_msg: "Invalid Shift Amount Interrupt\n"
+_string_invalid_device_value_msg: "Invalid Device Value Interrupt\n"
+_string_device_failure_msg: "Device Failure Interrupt\n"
+_string_clock_alarm_msg: "Clock Alarm Interrupt\n"
+_string_finished_proc_msg: "Finished process\n"
+
+_process_not_found_msg: "Process table search error. Halting\n"
+_string_sysc_call_code: "SYSC without a correct SYSC code. Hatling \n"
+_mega_halt_msg: "Mega halt. Kernel level interrupt\n"
+_process_table_full_msg: "Process table full. Halting\n"
+
+_in_exit_msg: "in exit\n"
+_in_main_handler_msg: "in main handler\n"
+_in_schedule_msg: "in schedule\n"
