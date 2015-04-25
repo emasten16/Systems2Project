@@ -170,6 +170,7 @@ deal_with_init:
     COPY    *%G5    %G3         ;store length of procsess at end of bus
     
     ;;DMA will move init into MM. Now change MMU registers and store base/limit in process table
+    COPY    %G5     +entry0_process_ID ;;useful for de-bugging purposes so that we know PT address
     COPY    *+entry0_process_ID  1
     COPY        *+current_process_ID        1
     SETBS   %G4
@@ -216,8 +217,8 @@ SYSC_Handler:
     COPY    %FP     *%SP
     ADDUS   %SP     %SP     4; pop the RA
     
-    ;;;BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
-    ;;;BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
+    BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
+    BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
     BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
 
@@ -225,7 +226,73 @@ EXIT_Handler:
 ;;return process memory to free space
 ;;search process table for process ID,  make it 0
 ;;schedule a new process
+;;;return process memory to free space
+;;;search process table for process ID,  make it 0
+;;====
+;;temp testing
+;; prints string stored in _string_divide_by_zero_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_in_exit_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    
+    ;;===
 
+    COPY   %G1   +entry0_process_ID
+_exit_handler_looptop:
+    BEQ   +_exit_handler_found  *%G1  *+current_process_ID
+    BEQ   +_process_not_found_error   *%G1  27 ;;27 is stored at the end of the process table to tell us it is at its end
+    ADDUS  %G1   %G1   48
+    JUMP   +_exit_handler_looptop
+
+_process_not_found_error:
+;;process not found in the process table..something is wrong. Print the issue and HALT
+    COPY  *+G5_temp  %G5 ;;because we use G5 in print
+    ;;caller prolog for the print function function:
+    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %G5     %SP     4; %G5 has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    COPY    *%SP    +_process_not_found_msg; the argument that I will pass to the test function
+    COPY    %FP     %SP
+    CALL   +_procedure_print  *%G5
+
+;;caller epilogue
+    ADDUS       %SP     %SP     4       ; Pop arg[0]
+    COPY        %FP     *%SP                ; %FP = pfp
+    ADDUS       %SP     %SP     8       ; Pop pfp / ra
+    COPY  %G5   *+G5_temp  ;;restoringbecause we use G5 in print
+    JUMP   +MEGA_HALT
+
+_exit_handler_found:
+    ;;;put a 0 in that space in the process table to free it up and then schedule a new process
+    COPY   *%G1   0
+;;TO DO: JUMP +_schedule_new_process
+;;FOR NOW, print the exit done thing
+    ;;process not found in the process table..something is wrong. Print the issue and HALT
+    COPY  *+G5_temp  %G5 ;;because we use G5 in print
+    ;;caller prolog for the print function function:
+    SUBUS   %SP     %SP     8; move SP over 2 words because no return value
+    COPY    *%SP    %FP; presrve FP in the PFP word
+    ADDUS   %G5     %SP     4; %G5 has address for word RA
+    SUBUS   %SP     %SP     4; %SP has address of first Argument
+    COPY    *%SP    +_exit_finished_msg; the argument that I will pass to the test function
+    COPY    %FP     %SP
+    CALL   +_procedure_print  *%G5
+
+;;caller epilogue
+    ADDUS       %SP     %SP     4       ; Pop arg[0]
+    COPY        %FP     *%SP                ; %FP = pfp
+    ADDUS       %SP     %SP     8       ; Pop pfp / ra
+    COPY  %G5   *+G5_temp  ;;restoringbecause we use G5 in print
+    
 CREATE_Handler:
 ;;;create a new process
 ;;;%g1 holds the ROM# of the process we want to create
@@ -1013,7 +1080,7 @@ _process_not_found_msg: "Process table search error. Halting\n"
 _string_sysc_call_code: "SYSC without a correct SYSC code. Hatling \n"
 _mega_halt_msg: "Mega halt. Kernel level interrupt\n"
 _process_table_full_msg: "Process table full. Halting\n"
-
+_exit_finished_msg: "exit finished\n"
 _in_exit_msg: "in exit\n"
 _in_main_handler_msg: "in main handler\n"
 _in_schedule_msg: "in schedule\n"
