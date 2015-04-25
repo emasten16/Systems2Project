@@ -344,7 +344,7 @@ GET_ROM_COUNT_Handler:
         BEQ	+rom_count_done	*%G0	*+_static_none_device_code
         ;; If this entry is ROM, then end the loop successfully.
         BEQ	+ROM_found	*%G0	*+_static_ROM_device_code
-        ;; This entry is not RAM, so advance to the next entry.
+        ;; This entry is not ROM so advance to the next entry.
         ADDUS	%G0	%G0	*+_skip_process_table_element
         JUMP	+rom_count_loop_top
     
@@ -361,11 +361,19 @@ GET_ROM_COUNT_Handler:
 PRINT_Handler:
     ;;caller prolog for the print function
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
-    COPY    *%SP    %FP; presrve FP in the PFP word
+    COPY    *%SP    %FP ; presrve FP in the PFP word
     ADDUS   %G5     %SP     4; %G5 has address for word RA
     SUBUS   %SP     %SP     4; %SP has address of first Argument
     ;;G1 is the relative address from 0 in process (when in user mode)
-    ADD    %G1      *+_static_init_mm_base  %G1
+    ;;get the base of the current process
+    COPY    %G0    +process_table
+    find_base_top:
+        BEQ     +found_current_proc  *%G0   *+current_process_ID ; branches if process is found
+        ADDUS   %G0    %G0    48  ; go to next spot in
+        JUMP    +find_base_top
+    found_current_proc:
+        ADD     %G0     %G0     4   ;%G0 now points to the base of current process
+    ADD    %G1      *%G0    %G1
     COPY    *%SP    %G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
     COPY    %FP     %SP
     CALL   +_procedure_print  *%G5
@@ -492,6 +500,7 @@ _run_process_continue:
         COPY    %G4    *%G0
         ADDUS   %G0    %G0    4
         COPY    %G5    *%G0
+        COPY    %G0     *+G0_temp
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
         JUMPMD  *+IP_temp   6
