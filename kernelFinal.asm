@@ -11,18 +11,18 @@ __start:
     ;;Set up trap table
     ;;Most of these interrupts just print the error, exit the process that threw the interrupt, and schedule a new process
     ;;SYSTEM_CALL and CLOCK_ALARM actually do stuff
-    COPY    *+INVALID_ADDRESS   +Dummy_Handler
-    COPY    *+INVALID_REGISTER  +Dummy_Handler
-    COPY    *+BUS_ERROR     +Dummy_Handler
+    COPY    *+INVALID_ADDRESS   +INVALID_ADDRESS_Handler
+    COPY    *+INVALID_REGISTER  +INVALID_REGISTER_Handler
+    COPY    *+BUS_ERROR     +BUS_ERROR_Handler
+    COPY    *+DIVIDE_BY_ZERO     +DIVIDE_BY_ZERO_Handler
+    COPY    *+OVERFLOW    +OVERFLOW_Handler
+    COPY    *+INVALID_INSTRUCTION   +INVALID_INSTRUCTION_Handler
+    COPY    *+PERMISSION_VIOLATION  +PERMISSION_VIOLATION_Handler
+    COPY    *+INVLID_SHIFT_AMOUNT   +INVALID_SHIFT_AMOUNT_Handler
+    COPY    *+INVALID_DEVICE_VALUE  +INVALID_DEVICE_VALUE_Handler
+    COPY    *+DEVICE_FAILURE     +DEVICE_FAILURE_Handler
     COPY    *+CLOCK_ALARM     +Dummy_Handler
-    COPY    *+DIVIDE_BY_ZERO     +Dummy_Handler
-    COPY    *+OVERFLOW    +Dummy_Handler
-    COPY    *+INVALID_INSTRUCTION    +Dummy_Handler
-    COPY    *+PERMISSION_VIOLATION     +Dummy_Handler
-    COPY    *+INVLID_SHIFT_AMOUNT     +Dummy_Handler
     COPY    *+SYSTEM_CALL     +SYSC_Handler
-    COPY    *+INVALID_DEVICE_VALUE    +Dummy_Handler
-    COPY    *+DEVICE_FAILURE     +Dummy_Handler
 
     SETTBR +TT_BASE
     SETIBR +Interrupt_buffer_IP
@@ -202,6 +202,325 @@ deal_with_init:
 ;;this is temporary, will be deleted when rest of code is in
 Dummy_Handler:
     HALT
+
+
+;; INVALID_ADDRESS HANDLER
+;; prints "Invalid Address Interrupt"
+INVALID_ADDRESS_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_invalid_address_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_invalid_address_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; Jumps to main handler of functions
+
+
+;; INVALID_REGISTER HANDLER
+;; prints "Invalid Register Interrupt"
+INVALID_REGISTER_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_divide_by_zero_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_divide_by_zero_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; BUS_ERROR HANDLER
+;; prints "Bus Error Interrupt"
+BUS_ERROR_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_bus_error_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_bus_error_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; DIVIDE_BY_ZERO HANDLER
+;; prints "Divide by Zero Interrupt"
+DIVIDE_BY_ZERO_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_divide_by_zero_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_divide_by_zero_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; OVERFLOW HANDLER
+;; prints "Overflow Interrupt"
+OVERFLOW_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_overflow_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_overflow_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; INVALID_INSTRUCTION HANDLER
+;; prints "Invalid Instruction Interrupt"
+INVALID_INSTRUCTION_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_invalid_instruction_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_invalid_instruction_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; PERMISSION_VIOLATION HANDLER
+;; prints "Permission Violation Interrupt"
+PERMISSION_VIOLATION_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_permission_violation_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_permission_violation_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; INVALID_SHIFT_AMOUNT HANDLER
+;; prints "Invalid Shift Amount Interrupt"
+INVALID_SHIFT_AMOUNT_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_invalid_shift_amount_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_invalid_shift_amount_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; INVALID_DIVICE_VALUE HANDLER
+;; prints "Invalid Device Value Interrupt"
+INVALID_DEVICE_VALUE_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_invalid_device_value_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_invalid_device_value_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; DEVICE_FAILURE HANDLER
+;; prints "Device Failure Interrupt"
+DEVICE_FAILURE_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_device_failure_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_device_failure_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    JUMP    +_main_handler ; jumps to main handler of functions
+
+
+;; MAIN HANDLER FOR INTERRUPTS
+;; Since we can't actually do anything for most of these interrupts, we are just going to end the current Process then schedule new one
+_main_handler:
+;;====
+;; prints string stored in _string_divide_by_zero_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_in_main_handler_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+;;===
+
+   ;; caller prologue for exit function
+       SUBUS    %SP    %SP    8 ; move SP over 2 words (no return value)
+       COPY     *%SP   %FP  ; preserve FP into PFP
+       ADDUS    %FP    %SP    4 ; add 4 to FP so that it points to return address
+       ; no arguments to add
+       CALL     +EXIT_Handler    *%FP
+   ;; caller epilogue for exit function
+       ; no arguments to pop
+       COPY    %FP    *%SP ; copies PFP back into FP (PFP is where SP points)
+       ADDUS   %SP    %SP     4 ; no return value so PFP and RA have been popped off and SP points to beginning of code
+   ;; caller prologue for scheduling a process
+    ;;   JUMP    +_schedule_new_process ;;we don't need this, it happens in exit
+    ;; ILL GET RID OF THIS WHEN EXIT_HANDLER IS FIXED
+
+
+
+;; FINDS A PROCESS TO SCHEDULE
+;; finds process to run, call _run_process method to run that process
+;; if no process exists, print "all processes completed" and halt everything
+_schedule_new_process:
+;;;====
+;; prints string stored in _string_divide_by_zero_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_in_schedule_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+;;;====
+
+   ;; not preserving registers. if registers need to be preserved, this method only uses G0  
+   ;; loop through process table
+       COPY    %G0    +process_table
+   schedule_proc_looptop1:
+       BEQ     +found_current_proc  *%G0   *+current_process_ID ; branches if process is found
+       ADDUS   %G0    %G0    48  ; go to next spot in
+       JUMP    +schedule_proc_looptop1
+   found_current_proc:
+       ;;we dont want to do this
+       ;;COPY    *%G0   0 ; sets the entry ID to 0
+   keep_searching:
+       ADDUS   %G0    %G0    48
+       BEQ     +start_from_beginning     *%G0    27
+       BEQ     +keep_searching    *%G0   0
+       JUMP    +found_proc 
+start_from_beginning:
+       COPY    %G0    +process_table 
+schedule_proc_looptop2:
+       BNEQ    +found_proc    *%G0     0
+       ADDUS   %G0    %G0    48
+       BEQ     +no_process_to_run    *%G0    27
+       JUMP    +schedule_proc_looptop2
+found_proc:
+       COPY    *+current_process_ID      *%G0
+       JUMP    +_run_process_re_do
+
+   no_process_to_run:
+       ;; prints "all processes compelted" and halts everything
+       ;; string saved in _string_finished_proc_msg
+       ;; caller prologue (calling print function)
+       SUBUS   %SP    %SP   8 ; no return value
+       COPY    *%SP   %FP ; preserves FP into PFP
+       ADDUS   %FP    %SP    4 ; FP has address for return address
+       SUBUS   %SP    %SP    4 ; SP has address of first argument
+       COPY    *%SP   +_string_finished_proc_msg
+       CALL    +_procedure_print   *%FP
+       ;; caller epilogue
+       ADDUS   %SP    %SP    4 ; pops argument
+       COPY    %FP    *%FP
+       ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+       HALT ; theres no processes left so kernel halts
+
+
+
 ;;=============================================================================================
 
 ;;=============================================================================================
