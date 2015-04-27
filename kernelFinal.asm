@@ -684,10 +684,10 @@ found_empty_process:
     COPY    *%G3    *+_static_free_space_base 
     ;;;add limit to process table
     ADD     %G1     *+_static_free_space_base     %G4      ;%G1 holds the MM limit of our process
-    ADD   %G3    %G3    4
+    ADD     %G3    %G3    4
     COPY    *%G3   %G1
     ;;update the free_space_base
-    ADD     *+_static_free_space_base       *+_static_free_space_base       16
+    ADD     *+_static_free_space_base       %G1      16
     
     COPY    %G0     %G3 ;;use %G0 to go through process table and set everything else to 0    
     ADDUS  %G0   %G0   4
