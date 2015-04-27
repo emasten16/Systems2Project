@@ -617,6 +617,7 @@ _exit_handler_found:
     COPY        %G5   *+G5_temp  ;;restoringbecause we use G5 in print
     COPY        *+current_process_ID    0
     JUMP +_schedule_new_process
+<<<<<<< HEAD
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -629,6 +630,17 @@ CREATE_Handler:
     COPY    %G2      0
     ;;;G4 is a counter so we know what to make the process ID    
     COPY    %G4      2
+=======
+
+CREATE_Handler:
+;;;create a new process
+;;;%G1 holds the ROM # of the process we want to create
+
+;;;search through the process table and find an empty process (0 indicated empty)
+    COPY    %G2      0
+;;;G4 is a counter so we know what to make the process ID    
+    COPY    %G4      1
+>>>>>>> juliaedholm/master
     COPY    %G3     +process_table
 
     ;;;we use addus here instead of add right?
@@ -642,7 +654,12 @@ create_process_table_looptop:
 found_empty_process: 
     ;;;assign process ID
     COPY        *%G3    %G4
+<<<<<<< HEAD
     ;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
+=======
+    
+;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
+>>>>>>> juliaedholm/master
  
     ;;caller prolog for the find_device prcedure
     SUBUS       %SP     %SP     12      ; Push pfp / ra / rv
@@ -729,11 +746,9 @@ no_room_in_process_table:
 
 ;;=============================================================================================    
 GET_ROM_COUNT_Handler:
-    ;;return the number of ROMs available in the system not including the bios and kernel
+    ;;return the number of ROMs in the system 
     ;;only ever needed by init
     COPY   %G0   *+_static_device_table_base
-    ;;;skip the beginning so we don't count bios or kernel
-    ADDUS  %G0   %G0    24
     COPY   %G1   0 ; %G1 = counter for number of ROM files we have seen
     rom_count_loop_top:
         ;; End the search with failure if we've reached the end of the table without finding RAM.
