@@ -28,7 +28,7 @@ _add_loop_end:
     SYSC
 
 .Numeric
-_end_of_loop: 10
+_end_of_loop: 3
 
 ;;SYSC codes
 _exit_sysc_code: 1

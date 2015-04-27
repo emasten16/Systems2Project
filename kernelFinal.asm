@@ -430,7 +430,7 @@ DEVICE_FAILURE_Handler:
 ;; prints "Clock Alarm Interrupt"
 CLOCK_ALARM_Handler:
     ;; checks to see if interrupt was in kernel
-    BNEQ  +deal_with_issue   *+kernel_indicator       1
+  ;;  BNEQ  +deal_with_issue   *+kernel_indicator       1
     SETALM *+offset_kernel  2
     
 deal_with_issue:
@@ -482,20 +482,8 @@ _main_handler:
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
 ;;===
-
-   ;; caller prologue for exit function
-       SUBUS    %SP    %SP    8 ; move SP over 2 words (no return value)
-       COPY     *%SP   %FP  ; preserve FP into PFP
-       ADDUS    %FP    %SP    4 ; add 4 to FP so that it points to return address
-       ; no arguments to add
-       CALL     +EXIT_Handler    *%FP
-   ;; caller epilogue for exit function
-       ; no arguments to pop
-       COPY    %FP    *%SP ; copies PFP back into FP (PFP is where SP points)
-       ADDUS   %SP    %SP     4 ; no return value so PFP and RA have been popped off and SP points to beginning of code
-   ;; caller prologue for scheduling a process
-    ;;   JUMP    +_schedule_new_process ;;we don't need this, it happens in exit
-    ;; ILL GET RID OF THIS WHEN EXIT_HANDLER IS FIXED
+    
+    JUMP    +EXIT_Handler
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -563,6 +551,8 @@ found_proc:
 ;;=============================================================================================
 ;;System call handler
 SYSC_Handler:
+    COPY    *+kernel_indicator  1
+    SETALM *+offset_kernel  2
     ;;;%G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
     ;;caller prolog for the pause process loop to preserve registers
     SUBUS       %SP     %SP     8      ; Push pfp / ra 
@@ -934,7 +924,7 @@ _run_process_continue:
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
         ;; GETCLK  *+cycle_counter_register
-        ;; SETALM  *+alarm_counter   *+offset
+        SETALM  *+offset  2
         JUMPMD  *+IP_temp   6
 ;;=============================================================================================
 
@@ -971,11 +961,10 @@ _run_process_re_do:
         ADDUS   %G0    %G0    4
         COPY    %G5    *%G0
         ;; kernel indicator
-        COPY    *+kernel_indicator   0 ;; 0 means we're in process
-        
+        COPY    *+kernel_indicator   0 ;; 0 means we're in process        
         ;; GETCLK  *+cycle_counter_register
         SETALM  *+offset  2
-        JUMPMD  0   6
+        JUMPMD  *+IP_temp   6
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -1330,8 +1319,8 @@ _print_sysc_code: 4
 ;;CLOCK ALARM
 cycle_counter_register: 0
 alarm_counter: 5
-offset: 0    1000
-offset_kernel: 0 0 
+offset: 0    10
+offset_kernel: 0 -1 
 
 ;Trap Table
 TT_BASE:
