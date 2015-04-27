@@ -485,12 +485,10 @@ _schedule_new_process:
        ADDUS   %G0    %G0    48  ; go to next spot in
        JUMP    +schedule_proc_looptop1
    found_current_proc:
-       ;;we dont want to do this
-       ;;COPY    *%G0   0 ; sets the entry ID to 0
-   keep_searching:
+       ;;find the next process in table (after current process)
        ADDUS   %G0    %G0    48
        BEQ     +start_from_beginning     *%G0    27
-       BEQ     +keep_searching    *%G0   0
+       BEQ     +found_current_proc    *%G0   0
        JUMP    +found_proc 
 start_from_beginning:
        COPY    %G0    +process_table 
@@ -507,16 +505,17 @@ found_proc:
        ;; prints "all processes compelted" and halts everything
        ;; string saved in _string_finished_proc_msg
        ;; caller prologue (calling print function)
-       SUBUS   %SP    %SP   8 ; no return value
-       COPY    *%SP   %FP ; preserves FP into PFP
-       ADDUS   %FP    %SP    4 ; FP has address for return address
-       SUBUS   %SP    %SP    4 ; SP has address of first argument
-       COPY    *%SP   +_string_finished_proc_msg
-       CALL    +_procedure_print   *%FP
-       ;; caller epilogue
-       ADDUS   %SP    %SP    4 ; pops argument
-       COPY    %FP    *%FP
-       ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_finished_proc_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
        HALT ; theres no processes left so kernel halts
 
 
@@ -593,7 +592,6 @@ _process_not_found_error:
 _exit_handler_found:
     ;;;put a 0 in that space in the process table to free it up and then schedule a new process
     COPY   *%G1   0
-;;TO DO: JUMP +_schedule_new_process
 ;;FOR NOW, print the exit done thing
     ;;process not found in the process table..something is wrong. Print the issue and HALT
     COPY  *+G5_temp  %G5 ;;because we use G5 in print
@@ -610,8 +608,9 @@ _exit_handler_found:
     ADDUS       %SP     %SP     4       ; Pop arg[0]
     COPY        %FP     *%SP                ; %FP = pfp
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
-    COPY  %G5   *+G5_temp  ;;restoringbecause we use G5 in print
-    
+    COPY        %G5   *+G5_temp  ;;restoringbecause we use G5 in print
+    COPY        *+current_process_ID    0
+    JUMP +_schedule_new_process
 CREATE_Handler:
 ;;;create a new process
 ;;;%g1 holds the ROM# of the process we want to create
@@ -754,10 +753,10 @@ PRINT_Handler:
     ;;get the base of the current process
     COPY    %G0    +process_table
     find_base_top:
-        BEQ     +found_current_proc  *%G0   *+current_process_ID ; branches if process is found
-        ADDUS   %G0    %G0    48  ; go to next spot in
+        BEQ     +found_current_proc_print  *%G0   *+current_process_ID ; branches if process is found
+        ADDUS   %G0    %G0    48  ;go to next spot in
         JUMP    +find_base_top
-    found_current_proc:
+    found_current_proc_print:
         ADD     %G0     %G0     4   ;%G0 now points to the base of current process
     ADD    %G1      *%G0    %G1
     COPY    *%SP    %G1; the argument that I will pass to the print. When the SYSC happens, user stores 4 in G0 to call a print sysc and a pointer to the string in G1
@@ -1393,7 +1392,7 @@ _string_invalid_shift_amount_msg: "Invalid Shift Amount Interrupt\n"
 _string_invalid_device_value_msg: "Invalid Device Value Interrupt\n"
 _string_device_failure_msg: "Device Failure Interrupt\n"
 _string_clock_alarm_msg: "Clock Alarm Interrupt\n"
-_string_finished_proc_msg: "Finished process\n"
+_string_finished_proc_msg: "Finished running all processes\n"
 
 _process_not_found_msg: "Process table search error. Halting\n"
 _string_sysc_call_code: "SYSC without a correct SYSC code. Hatling \n"

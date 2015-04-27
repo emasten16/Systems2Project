@@ -19,6 +19,7 @@ _power_of_2_loop_top:
     ;; End the search when the running sum == 10
     BEQ    +_power_of_2_loop_end     %G4  *+_end_of_loop   
     MULUS     %G5     %G5     2
+    ADD     %G4     %G4     1
     JUMP    +_power_of_2_loop_top
     
     ;;at this point, %G5 should hold 32
