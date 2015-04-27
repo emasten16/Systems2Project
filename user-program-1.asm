@@ -1,5 +1,5 @@
 .Code
-;;ROM 1. A process that will print a few messages and run
+;;User program 1. A process that will print a few messages and run
 __start:
 
 ;;print start message to the console
@@ -45,5 +45,5 @@ _get_rom_count_sysc_code: 3
 _print_sysc_code: 4
 
 .Text                                                                             
-_string_start_rom1_msg: "rom 1 has started\n"
-_string_exit_rom1_msg: "rom 1 ended\n"
+_string_start_rom1_msg: "User program 1 has started\n"
+_string_exit_rom1_msg: "User program 1 ended\n"

@@ -1,5 +1,5 @@
 .Code
-;;;ROM 1. A process that will add some numbers and throw a few interrupts 
+;;;User program 1. A process that will add some numbers and throw a few interrupts 
 ;;; The entry point.
 __start:
 
@@ -41,5 +41,5 @@ _get_rom_count_sysc_code: 3
 _print_sysc_code: 4
 
 .Text                                                                             
-_string_start_rom2_msg: "rom 2 has started\n"
-_string_exit_rom2_msg: "rom 2 is done\n"
+_string_start_rom2_msg: "User program 2 has started\n"
+_string_exit_rom2_msg: "User program 2 is done\n"

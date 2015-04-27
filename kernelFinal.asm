@@ -179,7 +179,10 @@ deal_with_init:
     SETLM   %G1
     COPY     *+entry0_limit  %G1
     ADD   *+_static_free_space_base   %G1   16; store the next free instruction in memory
+    ;;before we jump into init we need to make the kernel indicator 0 so that interrupts work
+    COPY   *+kernel_indicator  0
     JUMPMD   0   6;jump to start of process in MM (use virtual addressing!!!!)
+    COPY   *+kernel_indicator  1 ;;we should never have to get here but just in case
 
     ;;Callee epilogue for MAIN restore registers
     COPY    %G5     *%SP
@@ -199,6 +202,8 @@ deal_with_init:
 ;;=============================================================================================
 
 ;;=============================================================================================
+;; Most interrupt handlders (not SYSC or clock alarm)
+
 ;;this is temporary, will be deleted when rest of code is in
 Dummy_Handler:
     HALT
@@ -422,8 +427,10 @@ DEVICE_FAILURE_Handler:
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
     JUMP    +_main_handler ; jumps to main handler of functions
+;;=============================================================================================
+    
 
-
+;;=============================================================================================
 ;; MAIN HANDLER FOR INTERRUPTS
 ;; Since we can't actually do anything for most of these interrupts, we are just going to end the current Process then schedule new one
 _main_handler:
@@ -455,15 +462,15 @@ _main_handler:
    ;; caller prologue for scheduling a process
     ;;   JUMP    +_schedule_new_process ;;we don't need this, it happens in exit
     ;; ILL GET RID OF THIS WHEN EXIT_HANDLER IS FIXED
+;;=============================================================================================
 
-
-
+;;=============================================================================================
 ;; FINDS A PROCESS TO SCHEDULE
 ;; finds process to run, call _run_process method to run that process
 ;; if no process exists, print "all processes completed" and halt everything
 _schedule_new_process:
 ;;;====
-;; prints string stored in _string_divide_by_zero_msg
+    ;; prints string stored in _string_divide_by_zero_msg
     SUBUS   %SP    %SP   8 ; no return value
     COPY    *%SP   %FP ; preserves FP into PFP
     ADDUS   %G5    %SP    4 ; FP has address for return address
@@ -487,7 +494,7 @@ _schedule_new_process:
    found_current_proc:
        ;;find the next process in table (after current process)
        ADDUS   %G0    %G0    48
-       BEQ     +start_from_beginning     *%G0    27
+       BEQ     +start_from_beginning     *%G0    *+end_of_process_table
        BEQ     +found_current_proc    *%G0   0
        JUMP    +found_proc 
 start_from_beginning:
@@ -495,7 +502,7 @@ start_from_beginning:
 schedule_proc_looptop2:
        BNEQ    +found_proc    *%G0     0
        ADDUS   %G0    %G0    48
-       BEQ     +no_process_to_run    *%G0    27
+       BEQ     +no_process_to_run    *%G0    *+end_of_process_table
        JUMP    +schedule_proc_looptop2
 found_proc:
        COPY    *+current_process_ID      *%G0
@@ -517,9 +524,6 @@ found_proc:
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
        HALT ; theres no processes left so kernel halts
-
-
-
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -539,16 +543,18 @@ SYSC_Handler:
     BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
     BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
+;;=============================================================================================
 
+;;=============================================================================================
 EXIT_Handler:
-;;return process memory to free space
-;;search process table for process ID,  make it 0
-;;schedule a new process
-;;;return process memory to free space
-;;;search process table for process ID,  make it 0
+    ;;return process memory to free space
+    ;;search process table for process ID,  make it 0
+    ;;schedule a new process
+    ;;;return process memory to free space
+    ;;;search process table for process ID,  make it 0
 ;;====
-;;temp testing
-;; prints string stored in _string_divide_by_zero_msg
+    ;;temp testing
+    ;; prints string stored in _string_divide_by_zero_msg
     SUBUS   %SP    %SP   8 ; no return value
     COPY    *%SP   %FP ; preserves FP into PFP
     ADDUS   %G5    %SP    4 ; FP has address for return address
@@ -571,7 +577,7 @@ _exit_handler_looptop:
     JUMP   +_exit_handler_looptop
 
 _process_not_found_error:
-;;process not found in the process table..something is wrong. Print the issue and HALT
+    ;;process not found in the process table..something is wrong. Print the issue and HALT
     COPY  *+G5_temp  %G5 ;;because we use G5 in print
     ;;caller prolog for the print function function:
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
@@ -611,15 +617,18 @@ _exit_handler_found:
     COPY        %G5   *+G5_temp  ;;restoringbecause we use G5 in print
     COPY        *+current_process_ID    0
     JUMP +_schedule_new_process
+;;=============================================================================================
 
+;;=============================================================================================
 CREATE_Handler:
-;;;create a new process
-;;;%G1 holds the ROM # of the process we want to create
+    ;;;create a new process
+    ;;;%G1 holds the ROM # of the process we want to create
 
-;;;search through the process table and find an empty process (0 indicated empty)
+;   ;;search through the process table and find an empty process (0 indicated empty)
     COPY    %G2      0
-;;;G4 is a counter so we know what to make the process ID    
+    ;;;G4 is a counter so we know what to make the process ID    
     COPY    %G4      1
+
     COPY    %G3     +process_table
 
     ;;;we use addus here instead of add right?
@@ -631,10 +640,10 @@ create_process_table_looptop:
     JUMP    +create_process_table_looptop
 
 found_empty_process: 
-;;;assign process ID
+    ;;;assign process ID
     COPY        *%G3    %G4
-    
-;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
+
+    ;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
  
     ;;caller prolog for the find_device prcedure
     SUBUS       %SP     %SP     12      ; Push pfp / ra / rv
@@ -700,10 +709,11 @@ found_empty_process:
     ADDUS  %G0   %G0   4
     COPY   *%G0   0
 
-;;;new process is in the process table, now go back to running the process we were in!
-    JUMP +_run_process_continue   
+    ;;;new process is in the process table, now go back to running the process we were in!
+    JUMP +_run_process_continue 
+
 no_room_in_process_table:
-;;;process table is full
+    ;;;process table is full
     SUBUS   %SP    %SP   8 ; no return value
     COPY    *%SP   %FP ; preserves FP into PFP
     ADDUS   %G5    %SP    4 ; FP has address for return address
@@ -716,8 +726,9 @@ no_room_in_process_table:
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
     JUMP   +MEGA_HALT
-    
-    
+;;============================================================================================= 
+
+;;=============================================================================================    
 GET_ROM_COUNT_Handler:
     ;;return the number of ROMs in the system 
     ;;only ever needed by init
@@ -741,7 +752,9 @@ GET_ROM_COUNT_Handler:
         COPY    *+entry0_G0     %G1     ;Store the count of ROM in %G0 for init 
         ;;jump to _run_process_continue to pick up where we left off in init
         JUMP    +_run_process_continue
+;;=============================================================================================        
 
+;;=============================================================================================
 PRINT_Handler:
     ;;caller prolog for the print function
     SUBUS   %SP     %SP     8; move SP over 2 words because no return value
@@ -1204,10 +1217,11 @@ find_device_return:
     ADDUS       %G5     %FP     12  ; %G5 = &ra
     JUMP        *%G5
 ;;=============================================================================================
-   
+ 
+;;=============================================================================================   
 ;; MEGA HALT. Will be called when the kernel throws an interrupt
 MEGA_HALT:
-;; prints string stored in _mega_halt_msg
+    ;; prints string stored in _mega_halt_msg
     SUBUS   %SP    %SP   8 ; no return value
     COPY    *%SP   %FP ; preserves FP into PFP
     ADDUS   %G5    %SP    4 ; FP has address for return address
@@ -1220,6 +1234,7 @@ MEGA_HALT:
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
    HALT   
+;;=============================================================================================
     
 .Numeric
 end_of_bus: 0
@@ -1266,6 +1281,7 @@ _static_kernel_base:		0
 _static_kernel_limit:		0
 _static_free_space_base:    0
 _static_init_mm_base: 0
+
 ;;SYSC codes
 _exit_sysc_code: 1
 _create_sysc_code: 2 
@@ -1294,7 +1310,7 @@ INterrupt_buffer_MISC: 0
 IP_temp: 0
 G5_temp: 0
 G0_temp: 0
-kernel_indicator: 0
+kernel_indicator: 1 ;;this starts at one because we start in the kernel
 current_process_ID: 0
 
 ;;;PROCESS TABLE - room for five processes
@@ -1371,8 +1387,45 @@ entry5_G4:  0
 entry5_G5:  0
 entry5_SP:  0
 entry5_FP:  0
+entry6_process_ID:  0
+entry6_base:    0
+entry6_limit:   0
+entry6_IP:  0
+entry6_G0:  0
+entry6_G1:  0
+entry6_G2:  0
+entry6_G3:  0
+entry6_G4:  0
+entry6_G5:  0
+entry6_SP:  0
+entry6_FP:  0
+entry7_process_ID:  0
+entry7_base:    0
+entry7_limit:   0
+entry7_IP:  0
+entry7_G0:  0
+entry7_G1:  0
+entry7_G2:  0
+entry7_G3:  0
+entry7_G4:  0
+entry7_G5:  0
+entry7_SP:  0
+entry7_FP:  0
+entry8_process_ID:  0
+entry8_base:    0
+entry8_limit:   0
+entry8_IP:  0
+entry8_G0:  0
+entry8_G1:  0
+entry8_G2:  0
+entry8_G3:  0
+entry8_G4:  0
+entry8_G5:  0
+entry8_SP:  0
+entry8_FP:  0
 end_of_process_table:   27
 ;;;this is so that we can check to see if we have reached the end of the process table and it is full
+
 
 .Text
 _string_blank_line: "                                                                                "
