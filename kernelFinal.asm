@@ -430,7 +430,10 @@ DEVICE_FAILURE_Handler:
 ;; prints "Clock Alarm Interrupt"
 CLOCK_ALARM_Handler:
     ;; checks to see if interrupt was in kernel
-    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    BNEQ  +deal_with_issue   *+kernel_indicator       1
+    SETALM *+offset_kernel  2
+    
+deal_with_issue:
     COPY    *+kernel_indicator    1
     ;; caller prologue for print function
     ;; prints string stored in _string_clock_alarm_msg
@@ -971,7 +974,7 @@ _run_process_re_do:
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
         
         ;; GETCLK  *+cycle_counter_register
-        ;; SETALM  *+alarm_counter   *+offset
+        SETALM  *+offset  2
         JUMPMD  0   6
 ;;=============================================================================================
 
@@ -1327,7 +1330,8 @@ _print_sysc_code: 4
 ;;CLOCK ALARM
 cycle_counter_register: 0
 alarm_counter: 5
-offset: 1
+offset: 0    1000
+offset_kernel: 0 0 
 
 ;Trap Table
 TT_BASE:
