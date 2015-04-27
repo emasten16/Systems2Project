@@ -1,5 +1,5 @@
 .Code
-;;;ROM 3: Print to show that we have started the rom, count down from 10 to 0, print to show that we have finished. 
+;;;user-program-3: Print to show that we have started the rom, count down from 10 to 0, print to show that we have finished. 
 ;;; The entry point.
 __start:
 
@@ -37,5 +37,5 @@ _get_rom_count_sysc_code: 3
 _print_sysc_code: 4
 
 .Text                                                                             
-_string_start_rom3_msg: "ROM 3 has started.\n"
-_string_exit_rom3_msg: "ROM 3 is done.\n"
+_string_start_rom3_msg: "User program 3 has started.\n"
+_string_exit_rom3_msg: "User program 3 is done.\n"
