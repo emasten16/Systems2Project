@@ -859,7 +859,6 @@ _run_process_continue:
     ;; current process is already in current_process_ID
     ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
     ;; loop through process table
-
         COPY    %G0    +process_table
     schedule_proc_looptop_continue:
         BEQ     +found_current_proc_continue  *%G0   *+current_process_ID ; branches if process is found
