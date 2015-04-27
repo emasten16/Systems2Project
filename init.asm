@@ -14,17 +14,16 @@ __start:
     COPY    %G5     10
     COPY    %G0     *+_get_rom_count_sysc_code
     SYSC
-    COPY    *+_ROM_count  %G0   ;%G0 contains the regiser value for number of ROM files
+    COPY   *+_ROM_count  %G0     ;%G0 contains the regiser value for number of ROM files
     
 ;;Create all processes    
-    COPY    %G1   0; Counter for number ROMS created
+    COPY    *+_created_counter   4; Counter for number ROMS created
+      ;; Do not create the first three ROMS (bios, kernel, and init)
 _create_process_loop_top:
-    ADD     %G1     %G1     1
-    ;; Do not create the first three ROMS (bios, kernel, and init)
-    BLT     +_create_process_loop_top   %G1     4
     ;; End the search when we have created all process and our counter is greater than rom count 
-    BGT    +_create_process_loop_end     %G1  *+_ROM_count 
+    BGT    +_create_process_loop_end     *+_created_counter  *+_ROM_count 
     
+    COPY    %G1     *+_created_counter
     COPY    %G0     *+_create_sysc_code   
     SYSC
     ;;process %G1 created, now move on to the next
@@ -32,6 +31,7 @@ _create_process_loop_top:
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_process_created_msg
     SYSC
+    ADD     *+_created_counter    *+_created_counter      1
     JUMP    +_create_process_loop_top
 
 _create_process_loop_end:
@@ -46,6 +46,7 @@ _create_process_loop_end:
 .Numeric
 ;; The source values to be added.
 _ROM_count: 0
+_created_counter: 0
 
 ;;SYSC codes
 _exit_sysc_code: 1
