@@ -21,7 +21,7 @@ __start:
     COPY    *+INVLID_SHIFT_AMOUNT   +INVALID_SHIFT_AMOUNT_Handler
     COPY    *+INVALID_DEVICE_VALUE  +INVALID_DEVICE_VALUE_Handler
     COPY    *+DEVICE_FAILURE     +DEVICE_FAILURE_Handler
-    COPY    *+CLOCK_ALARM     +Dummy_Handler
+    COPY    *+CLOCK_ALARM     +CLOCK_ALARM_Handler
     COPY    *+SYSTEM_CALL     +SYSC_Handler
 
     SETTBR +TT_BASE
@@ -35,55 +35,55 @@ __start:
  
 ;;Set up the stack and call main (code from Kaplan's file)
 RAM_search_loop_top:
-	;; End the search with failure if we've reached the end of the table without finding RAM.
-	BEQ		+RAM_search_failure	*%G0		*+_static_none_device_code
-	;; If this entry is RAM, then end the loop successfully.
-	BEQ		+RAM_found		*%G0		*+_static_RAM_device_code
+    ;; End the search with failure if we've reached the end of the table without finding RAM.
+    BEQ     +RAM_search_failure *%G0        *+_static_none_device_code
+    ;; If this entry is RAM, then end the loop successfully.
+    BEQ     +RAM_found      *%G0        *+_static_RAM_device_code
     ;; This entry is not RAM, so advance to the next entry.
-	ADDUS		%G0			%G0		*+_skip_process_table_element
-	JUMP		+RAM_search_loop_top
+    ADDUS       %G0         %G0     *+_skip_process_table_element
+    JUMP        +RAM_search_loop_top
 
 RAM_search_failure:
-	;; Record a code to indicate the error, and then halt.
-	COPY		%G5		*+_static_kernel_error_RAM_not_found
-	HALT
+    ;; Record a code to indicate the error, and then halt.
+    COPY        %G5     *+_static_kernel_error_RAM_not_found
+    HALT
 
 RAM_found:
-	;; RAM has been found.  If it is big enough, create a stack.
-	ADDUS		%G1		%G0		*+_incriment_by_one_word; %G1 = &RAM[base]
-	COPY		%G1		*%G1 					  ; %G1 = RAM[base]
-	ADDUS		%G2		%G0		*+_incriment_by_two_words ; %G2 = &RAM[limit]
-	COPY		%G2		*%G2 					  ; %G2 = RAM[limit]
-	SUB		%G0		%G2		%G1 			  ; %G0 = |RAM|
-	MULUS		%G4		*+_static_min_RAM_KB	 *+_static_bytes_per_KB ; %G4 = |min_RAM|
-	BLT		+RAM_too_small	%G0		%G4
-	MULUS		%G4		*+_static_kernel_KB_size *+_static_bytes_per_KB ; %G4 = |kmem|
-	ADDUS		%SP		%G1		%G4  			  ; %SP = kernel[base] + |kmem| = kernel[limit]
-	COPY		%FP		%SP 					  ; Initialize %FP
+    ;; RAM has been found.  If it is big enough, create a stack.
+    ADDUS       %G1     %G0     *+_incriment_by_one_word; %G1 = &RAM[base]
+    COPY        %G1     *%G1                      ; %G1 = RAM[base]
+    ADDUS       %G2     %G0     *+_incriment_by_two_words ; %G2 = &RAM[limit]
+    COPY        %G2     *%G2                      ; %G2 = RAM[limit]
+    SUB     %G0     %G2     %G1               ; %G0 = |RAM|
+    MULUS       %G4     *+_static_min_RAM_KB     *+_static_bytes_per_KB ; %G4 = |min_RAM|
+    BLT     +RAM_too_small  %G0     %G4
+    MULUS       %G4     *+_static_kernel_KB_size *+_static_bytes_per_KB ; %G4 = |kmem|
+    ADDUS       %SP     %G1     %G4               ; %SP = kernel[base] + |kmem| = kernel[limit]
+    COPY        %FP     %SP                       ; Initialize %FP
 
-	;; Copy the RAM and kernel bases and limits to statically allocated spaces.
-	COPY		*+_static_RAM_base		%G1
-	COPY		*+_static_RAM_limit		%G2
-	COPY		*+_static_kernel_base		%G1
-	COPY		*+_static_kernel_limit		%SP
+    ;; Copy the RAM and kernel bases and limits to statically allocated spaces.
+    COPY        *+_static_RAM_base      %G1
+    COPY        *+_static_RAM_limit     %G2
+    COPY        *+_static_kernel_base       %G1
+    COPY        *+_static_kernel_limit      %SP
 
-	;; With the stack initialized, call main() to begin booting proper.
-	SUBUS		%SP		%SP		12		 ; Push pFP / ra / rv
-	COPY		*%SP		%FP		  		 ; pFP = %FP
-	COPY		%FP		%SP				 ; Update FP.
-	ADDUS		%G5		%FP		4		 ; %G5 = &ra
-	CALL		+main		*%G5
+    ;; With the stack initialized, call main() to begin booting proper.
+    SUBUS       %SP     %SP     12       ; Push pFP / ra / rv
+    COPY        *%SP        %FP              ; pFP = %FP
+    COPY        %FP     %SP              ; Update FP.
+    ADDUS       %G5     %FP     4        ; %G5 = &ra
+    CALL        +main       *%G5
 
-	;; We should never be here, but wrap it up properly.
-	COPY		%FP		*%FP
-	ADDUS		%SP		%SP		12               ; Pop pFP / args[0] / ra / rv
-	COPY		%G5		*+_static_kernel_error_main_returned
-	HALT
+    ;; We should never be here, but wrap it up properly.
+    COPY        %FP     *%FP
+    ADDUS       %SP     %SP     12               ; Pop pFP / args[0] / ra / rv
+    COPY        %G5     *+_static_kernel_error_main_returned
+    HALT
 
 RAM_too_small:
-	;; Set an error code and halt.
-	COPY		%G5		*+_static_kernel_error_small_RAM
-	HALT
+    ;; Set an error code and halt.
+    COPY        %G5     *+_static_kernel_error_small_RAM
+    HALT
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -203,10 +203,6 @@ deal_with_init:
 
 ;;=============================================================================================
 ;; Most interrupt handlders (not SYSC or clock alarm)
-
-;;this is temporary, will be deleted when rest of code is in
-Dummy_Handler:
-    HALT
 
 
 ;; INVALID_ADDRESS HANDLER
@@ -427,6 +423,41 @@ DEVICE_FAILURE_Handler:
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
     JUMP    +_main_handler ; jumps to main handler of functions
+;;=============================================================================================
+
+;;=============================================================================================
+;; CLOCK_ALARM HANDLER
+;; prints "Clock Alarm Interrupt"
+CLOCK_ALARM_Handler:
+    ;; checks to see if interrupt was in kernel
+    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    COPY    *+kernel_indicator    1
+    ;; caller prologue for print function
+    ;; prints string stored in _string_clock_alarm_msg
+    COPY    *+preserve_G5     %G5
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_clock_alarm_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    COPY    %G5    *+preserve_G5
+
+     ;;caller prolog for the pause process loop to preserve registers
+    SUBUS       %SP     %SP     8      ; Push pfp / ra 
+    COPY        *%SP    %FP             ; pFP = %FP
+    ADDUS       %FP     %SP     4       ;%FP has address for RA
+    CALL        +_pause_process    *%FP
+    ;;caller epilogue
+    COPY    %FP     *%SP
+    ADDUS   %SP     %SP     4; pop the RA
+
+    JUMP    +_schedule_new_process
 ;;=============================================================================================
     
 
@@ -736,16 +767,16 @@ GET_ROM_COUNT_Handler:
     COPY   %G1   0 ; %G1 = counter for number of ROM files we have seen
     rom_count_loop_top:
         ;; End the search with failure if we've reached the end of the table without finding RAM.
-        BEQ	+rom_count_done	*%G0	*+_static_none_device_code
+        BEQ +rom_count_done *%G0    *+_static_none_device_code
         ;; If this entry is ROM, then end the loop successfully.
-        BEQ	+ROM_found	*%G0	*+_static_ROM_device_code
+        BEQ +ROM_found  *%G0    *+_static_ROM_device_code
         ;; This entry is not ROM so advance to the next entry.
-        ADDUS	%G0	%G0	*+_skip_process_table_element
-        JUMP	+rom_count_loop_top
+        ADDUS   %G0 %G0 *+_skip_process_table_element
+        JUMP    +rom_count_loop_top
     
     ROM_found:
         ADDUS   %G1     %G1     1
-        ADDUS	%G0	%G0     *+_skip_process_table_element
+        ADDUS   %G0 %G0     *+_skip_process_table_element
         JUMP   +rom_count_loop_top 
     
     rom_count_done:
@@ -899,6 +930,8 @@ _run_process_continue:
         COPY    %G0     *+G0_temp
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
+        ;; GETCLK  *+cycle_counter_register
+        ;; SETALM  *+alarm_counter   *+offset
         JUMPMD  *+IP_temp   6
 ;;=============================================================================================
 
@@ -936,6 +969,9 @@ _run_process_re_do:
         COPY    %G5    *%G0
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
+        
+        ;; GETCLK  *+cycle_counter_register
+        ;; SETALM  *+alarm_counter   *+offset
         JUMPMD  0   6
 ;;=============================================================================================
 
@@ -1239,24 +1275,24 @@ MEGA_HALT:
 .Numeric
 end_of_bus: 0
 ;; Device table location and codes.
-_static_device_table_base:	0x00001000
+_static_device_table_base:  0x00001000
 _incriment_by_one_word:       0x00000004
 _incriment_by_two_words:   0x00000008
 _skip_process_table_element:       0x0000000c
 _static_dt_entry_size:      12
 _static_dt_base_offset:     4
 _static_dt_limit_offset:    8
-_static_none_device_code:	0
-_static_controller_device_code:	1
-_static_ROM_device_code:	2
-_static_RAM_device_code:	3
-_static_console_device_code:	4
+_static_none_device_code:   0
+_static_controller_device_code: 1
+_static_ROM_device_code:    2
+_static_RAM_device_code:    3
+_static_console_device_code:    4
 
 ;; Other constants.
-_static_min_RAM_KB:		64
-_static_bytes_per_KB:		1024
-_static_bytes_per_page:		4096	; 4 KB/page
-_static_kernel_KB_size:		32	; KB taken by the kernel  
+_static_min_RAM_KB:     64
+_static_bytes_per_KB:       1024
+_static_bytes_per_page:     4096    ; 4 KB/page
+_static_kernel_KB_size:     32  ; KB taken by the kernel  
 
 ;; Constants for printing and console management.
 _static_console_width:      80
@@ -1266,19 +1302,19 @@ _static_cursor_char:        0x5f
 _static_newline_char:       0x0a
 
 ;; Error codes.
-_static_kernel_error_RAM_not_found:	0xffff0001
-_static_kernel_error_main_returned:	0xffff0002
-_static_kernel_error_small_RAM:		0xffff0003	
-_static_kernel_error_console_not_found:	0xffff0004
+_static_kernel_error_RAM_not_found: 0xffff0001
+_static_kernel_error_main_returned: 0xffff0002
+_static_kernel_error_small_RAM:     0xffff0003  
+_static_kernel_error_console_not_found: 0xffff0004
 
 ;; Statically allocated variables.
-_static_cursor_column:		0	; The column position of the cursor (always on the last row).
-_static_RAM_base:		0
-_static_RAM_limit:		0
-_static_console_base:		0
-_static_console_limit:		0
-_static_kernel_base:		0
-_static_kernel_limit:		0
+_static_cursor_column:      0   ; The column position of the cursor (always on the last row).
+_static_RAM_base:       0
+_static_RAM_limit:      0
+_static_console_base:       0
+_static_console_limit:      0
+_static_kernel_base:        0
+_static_kernel_limit:       0
 _static_free_space_base:    0
 _static_init_mm_base: 0
 
@@ -1287,6 +1323,11 @@ _exit_sysc_code: 1
 _create_sysc_code: 2 
 _get_rom_count_sysc_code: 3
 _print_sysc_code: 4
+
+;;CLOCK ALARM
+cycle_counter_register: 0
+alarm_counter: 5
+offset: 1
 
 ;Trap Table
 TT_BASE:
@@ -1310,6 +1351,7 @@ INterrupt_buffer_MISC: 0
 IP_temp: 0
 G5_temp: 0
 G0_temp: 0
+preserve_G5: 0
 kernel_indicator: 1 ;;this starts at one because we start in the kernel
 current_process_ID: 0
 
@@ -1430,7 +1472,7 @@ end_of_process_table:   27
 .Text
 _string_blank_line: "                                                                                "
 _string_test_msg: "test message\n"
-_string_done_msg:	"done.\n"
+_string_done_msg:   "done.\n"
 _string_main_method_msg: "Main method has started.\n"
 _string_invalid_address_msg: "Invalid Adress Interrupt\n"
 _string_invalid_register_msg: "Invalid Register Interrupt\n"
