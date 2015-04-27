@@ -617,30 +617,18 @@ _exit_handler_found:
     COPY        %G5   *+G5_temp  ;;restoringbecause we use G5 in print
     COPY        *+current_process_ID    0
     JUMP +_schedule_new_process
-<<<<<<< HEAD
 ;;=============================================================================================
 
 ;;=============================================================================================
 CREATE_Handler:
     ;;;create a new process
-    ;;;%g1 holds the ROM# of the process we want to create
-    ADD         %G1     %G1     2       ;init will pass the rom number after bios and kernel, so add 2
+    ;;;%G1 holds the ROM # of the process we want to create
 
-    ;;;search through the process table and find an empty process
+;   ;;search through the process table and find an empty process (0 indicated empty)
     COPY    %G2      0
     ;;;G4 is a counter so we know what to make the process ID    
-    COPY    %G4      2
-=======
-
-CREATE_Handler:
-;;;create a new process
-;;;%G1 holds the ROM # of the process we want to create
-
-;;;search through the process table and find an empty process (0 indicated empty)
-    COPY    %G2      0
-;;;G4 is a counter so we know what to make the process ID    
     COPY    %G4      1
->>>>>>> juliaedholm/master
+
     COPY    %G3     +process_table
 
     ;;;we use addus here instead of add right?
@@ -654,12 +642,8 @@ create_process_table_looptop:
 found_empty_process: 
     ;;;assign process ID
     COPY        *%G3    %G4
-<<<<<<< HEAD
+
     ;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
-=======
-    
-;;;at this point, G3 is pointing to the process ID in process table and G1 is telling us the rom number
->>>>>>> juliaedholm/master
  
     ;;caller prolog for the find_device prcedure
     SUBUS       %SP     %SP     12      ; Push pfp / ra / rv
