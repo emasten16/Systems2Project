@@ -494,7 +494,7 @@ _schedule_new_process:
    found_current_proc:
        ;;find the next process in table (after current process)
        ADDUS   %G0    %G0    48
-       BEQ     +start_from_beginning     *%G0    27
+       BEQ     +start_from_beginning     *%G0    *+end_of_process_table
        BEQ     +found_current_proc    *%G0   0
        JUMP    +found_proc 
 start_from_beginning:
@@ -502,7 +502,7 @@ start_from_beginning:
 schedule_proc_looptop2:
        BNEQ    +found_proc    *%G0     0
        ADDUS   %G0    %G0    48
-       BEQ     +no_process_to_run    *%G0    27
+       BEQ     +no_process_to_run    *%G0    *+end_of_process_table
        JUMP    +schedule_proc_looptop2
 found_proc:
        COPY    *+current_process_ID      *%G0
