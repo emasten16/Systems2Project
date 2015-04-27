@@ -16,7 +16,6 @@ __start:
     COPY    %G5   1 ;%G5 = running total(2 to the %G4)
     
 _power_of_2_loop_top:
-    ;; End the search when the running sum == 10
     BEQ    +_power_of_2_loop_end     %G4  *+_end_of_loop   
     MULUS     %G5     %G5     2
     ADD     %G4     %G4     1
