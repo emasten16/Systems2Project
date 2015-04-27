@@ -430,7 +430,10 @@ DEVICE_FAILURE_Handler:
 ;; prints "Clock Alarm Interrupt"
 CLOCK_ALARM_Handler:
     ;; checks to see if interrupt was in kernel
-    BEQ     +MEGA_HALT    *+kernel_indicator    1
+    BNEQ  +deal_with_issue   *+kernel_indicator       1
+    SETALM *+offset_kernel  2
+    
+deal_with_issue:
     COPY    *+kernel_indicator    1
     ;; caller prologue for print function
     ;; prints string stored in _string_clock_alarm_msg
