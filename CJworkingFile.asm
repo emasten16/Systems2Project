@@ -797,6 +797,7 @@ CLOCK_ALARM_Handler:
     COPY    *+kernel_indicator    1
     ;; caller prologue for print function
     ;; prints string stored in _string_clock_alarm_msg
+    COPY    *+preserve_G5     %G5
     SUBUS   %SP    %SP   8 ; no return value
     COPY    *%SP   %FP ; preserves FP into PFP
     ADDUS   %G5    %SP    4 ; FP has address for return address
@@ -808,24 +809,8 @@ CLOCK_ALARM_Handler:
     ADDUS   %SP    %SP    4 ; pops argument
     COPY    %FP    *%SP
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+    COPY    %G5    *+preserve_G5
     JUMP    +_pause_process  ; jumps to method that will preserve the current process
-
-;; MEGA HALT
-MEGA_HALT:
-;; prints string stored in _mega_halt_msg
-    SUBUS   %SP    %SP   8 ; no return value
-    COPY    *%SP   %FP ; preserves FP into PFP
-    ADDUS   %G5    %SP    4 ; FP has address for return address
-    SUBUS   %SP    %SP    4 ; SP has address of first argument
-    COPY    *%SP   +_mega_halt_msg
-    COPY    %FP    %SP
-    CALL    +_procedure_print   *%G5
-    ;; caller epilogue
-    ADDUS   %SP    %SP    4 ; pops argument
-    COPY    %FP    *%SP
-    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
-   HALT
-
 
 _pause_process:
    COPY    *+G0_temp  %G0
@@ -856,6 +841,26 @@ found_proc_preserve:
        COPY    *%G0   %FP
    JUMP    +_schedule_new_process
 
+
+
+
+
+
+;; MEGA HALT
+MEGA_HALT:
+;; prints string stored in _mega_halt_msg
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_mega_halt_msg
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+   HALT
 
 
 ;; MAIN HANDLER FOR INTERRUPTS
@@ -1304,6 +1309,7 @@ rp_return_address: 0
 IP_temp: 0
 G5_temp: 0
 G0_temp: 0
+preserve_G5: 0
 
 kernel_indicator: 0
 current_process_ID: 0
