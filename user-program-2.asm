@@ -20,13 +20,9 @@ _add_loop_top:
 
 _add_loop_end:
     ;;print end message to the console
-    COPY    %G4    0
-    COPY    %G5    2
-    DIV     %G4    %G5    %G4
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_exit_rom2_msg
     SYSC
-
     ;;;exit
     COPY    %G0    *+_exit_sysc_code
     SYSC
