@@ -179,7 +179,10 @@ deal_with_init:
     SETLM   %G1
     COPY     *+entry0_limit  %G1
     ADD   *+_static_free_space_base   %G1   16; store the next free instruction in memory
+    ;;before we jump into init we need to make the kernel indicator 0 so that interrupts work
+    COPY   *+kernel_indicator  0
     JUMPMD   0   6;jump to start of process in MM (use virtual addressing!!!!)
+    COPY   *+kernel_indicator  1 ;;we should never have to get here but just in case
 
     ;;Callee epilogue for MAIN restore registers
     COPY    %G5     *%SP
@@ -541,7 +544,7 @@ SYSC_Handler:
     BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
 ;;=============================================================================================
-    
+
 ;;=============================================================================================
 EXIT_Handler:
     ;;return process memory to free space
@@ -1280,6 +1283,7 @@ _static_kernel_base:		0
 _static_kernel_limit:		0
 _static_free_space_base:    0
 _static_init_mm_base: 0
+
 ;;SYSC codes
 _exit_sysc_code: 1
 _create_sysc_code: 2 
@@ -1308,7 +1312,7 @@ INterrupt_buffer_MISC: 0
 IP_temp: 0
 G5_temp: 0
 G0_temp: 0
-kernel_indicator: 0
+kernel_indicator: 1 ;;this starts at one because we start in the kernel
 current_process_ID: 0
 
 ;;;PROCESS TABLE - room for five processes
