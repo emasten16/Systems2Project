@@ -442,6 +442,15 @@ DEVICE_FAILURE_Handler:
 CLOCK_ALARM_Handler:
     SETALM  *+offset_kernel  2
     COPY    *+kernel_indicator    1
+    ;;caller prolog for the pause process loop to preserve registers
+    SUBUS       %SP     %SP     8      ; Push pfp / ra 
+    COPY        *%SP    %FP             ; pFP = %FP
+    ADDUS       %FP     %SP     4       ;%FP has address for RA
+    CALL        +_pause_process    *%FP
+    ;;caller epilogue
+    COPY    %FP     *%SP
+    ADDUS   %SP     %SP     8; pop the pfp/ra
+    
     ;; caller prologue for print function
     ;; prints string stored in _string_clock_alarm_msg
     COPY    *+preserve_G5     %G5
@@ -458,14 +467,7 @@ CLOCK_ALARM_Handler:
     ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
     COPY    %G5    *+preserve_G5
 
-     ;;caller prolog for the pause process loop to preserve registers
-    SUBUS       %SP     %SP     8      ; Push pfp / ra 
-    COPY        *%SP    %FP             ; pFP = %FP
-    ADDUS       %FP     %SP     4       ;%FP has address for RA
-    CALL        +_pause_process    *%FP
-    ;;caller epilogue
-    COPY    %FP     *%SP
-    ADDUS   %SP     %SP     8; pop the RA
+
 
     JUMP    +_schedule_new_process
 ;;=============================================================================================
@@ -535,8 +537,11 @@ schedule_proc_looptop2:
        JUMP    +schedule_proc_looptop2
 found_proc:
        COPY    *+current_process_ID      *%G0
+       ADDUS    %G5     %G0     12
+       BNEQ      +continue_running_process  *%G5     0 ; check if IP for the process is not 0 (indicates that we paused an existing process)
        JUMP    +_run_process_re_do
-
+continue_running_process:
+        JUMP    +_run_process_continue
    no_process_to_run:
        ;; prints "all processes compelted" and halts everything
        ;; string saved in _string_finished_proc_msg
@@ -559,7 +564,7 @@ found_proc:
 ;;System call handler
 SYSC_Handler:
     COPY    *+kernel_indicator  1
-    SETALM *+offset_kernel  2
+    SETALM  *+offset_kernel  2
     ;;;%G0 holds 1 if EXIT, 2 if CREATE, 3 if GET_ROM_COUNT, 4 if PRINT
     ;;caller prolog for the pause process loop to preserve registers
     SUBUS       %SP     %SP     8      ; Push pfp / ra 
