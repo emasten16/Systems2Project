@@ -1,5 +1,5 @@
 .Code
-;;;user-program-3: Print to show that we have started the rom, count down from 10 to 0, print to show that we have finished. 
+;;;user-program-3: Print to show that we have started the rom, count down from 10 to 0, throw a divide by zero interrupt
 ;;; The entry point.
 __start:
 
