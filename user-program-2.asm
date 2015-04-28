@@ -13,7 +13,7 @@ __start:
     COPY    %G5   1 ;%G5 = running sum
 _add_loop_top:
     ;; End the search when the running sum == 10
-    BEQ    +_add_loop_end     %G5  *+_end_of_loop   
+    BGT    +_add_loop_end     %G5  *+_end_of_loop   
     ADD     %G5     %G5     1
     ADD     %G5     %G5     2
         ADD     %G5     %G5     1
