@@ -465,7 +465,7 @@ CLOCK_ALARM_Handler:
     CALL        +_pause_process    *%FP
     ;;caller epilogue
     COPY    %FP     *%SP
-    ADDUS   %SP     %SP     4; pop the RA
+    ADDUS   %SP     %SP     8; pop the RA
 
     JUMP    +_schedule_new_process
 ;;=============================================================================================
@@ -568,12 +568,27 @@ SYSC_Handler:
     CALL        +_pause_process    *%FP
     ;;caller epilogue
     COPY    %FP     *%SP
-    ADDUS   %SP     %SP     4; pop the RA
+    ADDUS   %SP     %SP     8; pop the RA
     
     BEQ     +EXIT_Handler   %G0     *+_exit_sysc_code
     BEQ     +CREATE_Handler  %G0     *+_create_sysc_code
     BEQ     +GET_ROM_COUNT_Handler   %G0     *+_get_rom_count_sysc_code
     BEQ     +PRINT_Handler          %G0     *+_print_sysc_code
+     ;; prints "incorrect SYSTEM CALL" and halts everything
+       ;; string saved in _string_bad_SYSC
+       ;; caller prologue (calling print function)
+    SUBUS   %SP    %SP   8 ; no return value
+    COPY    *%SP   %FP ; preserves FP into PFP
+    ADDUS   %G5    %SP    4 ; FP has address for return address
+    SUBUS   %SP    %SP    4 ; SP has address of first argument
+    COPY    *%SP   +_string_bad_SYSC
+    COPY    %FP    %SP
+    CALL    +_procedure_print   *%G5
+    ;; caller epilogue
+    ADDUS   %SP    %SP    4 ; pops argument
+    COPY    %FP    *%SP
+    ADDUS   %SP    %SP    8 ; no return value so just pops PFP and RA
+       HALT ; theres no processes left so kernel halts
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -647,7 +662,7 @@ _exit_handler_found:
     ADDUS       %SP     %SP     8       ; Pop pfp / ra
     COPY        %G5   *+G5_temp  ;;restoringbecause we use G5 in print
     COPY        *+current_process_ID    0
-    JUMP +_schedule_new_process
+    JUMP        +_schedule_new_process
 ;;=============================================================================================
 
 ;;=============================================================================================
@@ -840,11 +855,11 @@ _pause_process:
     COPY    *%SP    %G0
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G1
-     SUBUS   %SP     %SP     4
+    SUBUS   %SP     %SP     4
     COPY    *%SP    %G2
-     SUBUS   %SP     %SP     4
+    SUBUS   %SP     %SP     4
     COPY    *%SP    %G3
-     SUBUS   %SP     %SP     4
+    SUBUS   %SP     %SP     4
     COPY    *%SP    %G4
     SUBUS   %SP     %SP     4
     COPY    *%SP    %G5
@@ -1357,7 +1372,7 @@ _print_sysc_code: 4
 ;;CLOCK ALARM
 cycle_counter_register: 0
 alarm_counter: 5
-process_offset: 0    9
+process_offset: 0    10
 offset_kernel: 0 -1 
 
 ;Trap Table
@@ -1517,6 +1532,7 @@ _string_invalid_device_value_msg: "Invalid Device Value Interrupt\n"
 _string_device_failure_msg: "Device Failure Interrupt\n"
 _string_clock_alarm_msg: "Clock Alarm Interrupt\n"
 _string_finished_proc_msg: "Finished running all processes\n"
+_string_bad_SYSC: "Undefined SYSC operation"
 
 _process_not_found_msg: "Process table search error. Halting\n"
 _string_sysc_call_code: "SYSC without a correct SYSC code. Hatling \n"
