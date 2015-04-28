@@ -14,23 +14,27 @@ __start:
 _add_loop_top:
     ;; End the search when the running sum == 10
     BGT    +_add_loop_end     %G5  *+_end_of_loop   
-    ADD     %G5     %G5     1
-    ADD     %G5     %G5     2
-        ADD     %G5     %G5     1
-    ADD     %G5     %G5     2
-    
+    ADD     %G5     %G5     3
+    JUMP    +_add_loop_top
+     
+_add_loop_end:   
     ;;print running message to the console
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_running_rom2_msg
     SYSC
-    JUMP    +_add_loop_top
-    
 
-_add_loop_end:
+_sub_loop_top:
+    ;; End the search when the running sum == 10
+    BLT    +_sub_loop_end     %G5   0 
+    SUB     %G5     %G5     3
+    JUMP    +_sub_loop_top
+     
+_sub_loop_end:
     ;;print end message to the console
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_exit_rom2_msg
-    SYSC
+    SYSC    
+    
     ;;;exit
     COPY    %G0    *+_exit_sysc_code
     SYSC
