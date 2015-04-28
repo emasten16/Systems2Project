@@ -1,5 +1,5 @@
 .Code
-;;;User program 1. A process that will add some numbers and throw a few interrupts 
+;;;User program 2
 ;;; The entry point.
 __start:
 
