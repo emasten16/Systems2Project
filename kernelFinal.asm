@@ -7,7 +7,7 @@
 
 ;;=============================================================================================
 ;; This is the initial entry point                                                                           
-__start:    
+__start:
     ;;Set up trap table
     ;;Most of these interrupts just print the error, exit the process that threw the interrupt, and schedule a new process
     ;;SYSTEM_CALL and CLOCK_ALARM actually do stuff
@@ -181,6 +181,7 @@ deal_with_init:
     ADD   *+_static_free_space_base   %G1   16; store the next free instruction in memory
     ;;before we jump into init we need to make the kernel indicator 0 so that interrupts work
     COPY   *+kernel_indicator  0
+    SETALM  *+offset_kernel  2
     JUMPMD   0   6;jump to start of process in MM (use virtual addressing!!!!)
     COPY   *+kernel_indicator  1 ;;we should never have to get here but just in case
 
@@ -208,6 +209,7 @@ deal_with_init:
 ;; INVALID_ADDRESS HANDLER
 ;; prints "Invalid Address Interrupt"
 INVALID_ADDRESS_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -230,6 +232,7 @@ INVALID_ADDRESS_Handler:
 ;; INVALID_REGISTER HANDLER
 ;; prints "Invalid Register Interrupt"
 INVALID_REGISTER_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -252,6 +255,7 @@ INVALID_REGISTER_Handler:
 ;; BUS_ERROR HANDLER
 ;; prints "Bus Error Interrupt"
 BUS_ERROR_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -274,6 +278,7 @@ BUS_ERROR_Handler:
 ;; DIVIDE_BY_ZERO HANDLER
 ;; prints "Divide by Zero Interrupt"
 DIVIDE_BY_ZERO_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -296,6 +301,7 @@ DIVIDE_BY_ZERO_Handler:
 ;; OVERFLOW HANDLER
 ;; prints "Overflow Interrupt"
 OVERFLOW_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -318,6 +324,7 @@ OVERFLOW_Handler:
 ;; INVALID_INSTRUCTION HANDLER
 ;; prints "Invalid Instruction Interrupt"
 INVALID_INSTRUCTION_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -340,6 +347,7 @@ INVALID_INSTRUCTION_Handler:
 ;; PERMISSION_VIOLATION HANDLER
 ;; prints "Permission Violation Interrupt"
 PERMISSION_VIOLATION_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -362,6 +370,7 @@ PERMISSION_VIOLATION_Handler:
 ;; INVALID_SHIFT_AMOUNT HANDLER
 ;; prints "Invalid Shift Amount Interrupt"
 INVALID_SHIFT_AMOUNT_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -384,6 +393,7 @@ INVALID_SHIFT_AMOUNT_Handler:
 ;; INVALID_DIVICE_VALUE HANDLER
 ;; prints "Invalid Device Value Interrupt"
 INVALID_DEVICE_VALUE_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -406,6 +416,7 @@ INVALID_DEVICE_VALUE_Handler:
 ;; DEVICE_FAILURE HANDLER
 ;; prints "Device Failure Interrupt"
 DEVICE_FAILURE_Handler:
+    SETALM *+offset_kernel  2
     ;; checks to see if interrupt was in kernel
     BEQ     +MEGA_HALT    *+kernel_indicator    1
     COPY    *+kernel_indicator    1
@@ -429,11 +440,7 @@ DEVICE_FAILURE_Handler:
 ;; CLOCK_ALARM HANDLER
 ;; prints "Clock Alarm Interrupt"
 CLOCK_ALARM_Handler:
-    ;; checks to see if interrupt was in kernel
-  ;;  BNEQ  +deal_with_issue   *+kernel_indicator       1
-    SETALM *+offset_kernel  2
-    
-deal_with_issue:
+    SETALM  *+offset_kernel  2
     COPY    *+kernel_indicator    1
     ;; caller prologue for print function
     ;; prints string stored in _string_clock_alarm_msg
@@ -648,7 +655,7 @@ CREATE_Handler:
     ;;;create a new process
     ;;;%G1 holds the ROM # of the process we want to create
 
-;   ;;search through the process table and find an empty process (0 indicated empty)
+   ;;search through the process table and find an empty process (0 indicated empty)
     COPY    %G2      0
     ;;;G4 is a counter so we know what to make the process ID    
     COPY    %G4      1
@@ -733,8 +740,8 @@ found_empty_process:
     ADDUS  %G0   %G0   4
     COPY   *%G0   0
 
-    ;;;new process is in the process table, now go back to running the process we were in!
-    JUMP +_run_process_continue 
+    ;;;new process is in the process table, now go back to running init!
+    JUMP +_resume_init
 
 no_room_in_process_table:
     ;;;process table is full
@@ -890,12 +897,45 @@ _pause_process:
 ;;=============================================================================================
  
 ;;=============================================================================================  
-_run_process_continue:
+_resume_init:
     ;; go back into process that has already been created
     ;; this is used for SYSC where we do have to add 16 and move to the next instruction
     ;; current process is already in current_process_ID
     ;; restore registers, jumps into IP, changes mode and virtual addressing, kernel indicator, set base &limit registers
     ;; loop through process table
+        COPY    %G0    +process_table
+    resume_init_looptop:
+        BEQ     +found_init_continue  *%G0   *+current_process_ID ; branches if process is found
+        ADDUS   %G0    %G0    48  ; go to next spot in
+        JUMP    +resume_init_looptop
+    found_init_continue:
+        ADDUS   %G0    %G0    4
+        SETBS   *%G0
+        ADDUS   %G0    %G0    4
+        SETLM   *%G0
+        ADDUS   %G0    %G0    4
+        ADD     *+IP_temp      *%G0      16 ;;move on to the next word when you return to the process
+        ADDUS   %G0    %G0    4
+        COPY    *+G0_temp    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G1    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G2    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G3    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G4    *%G0
+        ADDUS   %G0    %G0    4
+        COPY    %G5    *%G0
+        COPY    %G0     *+G0_temp
+        ;; kernel indicator
+        COPY    *+kernel_indicator   0 ;; 0 means we're in process
+        JUMPMD  *+IP_temp   6
+;;=============================================================================================
+
+;;=============================================================================================
+_run_process_continue:
+    ;;identical to resume_init, except this will set the clock alarm
         COPY    %G0    +process_table
     schedule_proc_looptop_continue:
         BEQ     +found_current_proc_continue  *%G0   *+current_process_ID ; branches if process is found
@@ -923,8 +963,7 @@ _run_process_continue:
         COPY    %G0     *+G0_temp
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process
-        ;; GETCLK  *+cycle_counter_register
-        SETALM  *+offset  2
+        SETALM  *+process_offset  2
         JUMPMD  *+IP_temp   6
 ;;=============================================================================================
 
@@ -962,8 +1001,7 @@ _run_process_re_do:
         COPY    %G5    *%G0
         ;; kernel indicator
         COPY    *+kernel_indicator   0 ;; 0 means we're in process        
-        ;; GETCLK  *+cycle_counter_register
-        SETALM  *+offset  2
+        SETALM  *+process_offset  2
         JUMPMD  *+IP_temp   6
 ;;=============================================================================================
 
@@ -1319,7 +1357,7 @@ _print_sysc_code: 4
 ;;CLOCK ALARM
 cycle_counter_register: 0
 alarm_counter: 5
-offset: 0    10
+process_offset: 0    9
 offset_kernel: 0 -1 
 
 ;Trap Table
