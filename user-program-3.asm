@@ -13,7 +13,8 @@ __start:
     COPY    %G5   10 ;%G5 = running sum
 _sub_loop_top:
     ;; End the loop when running sum ==0
-    BEQ    +_sub_loop_end     %G5  *+_end_of_loop   
+    BEQ    +_sub_loop_end     %G5  *+_end_of_loop
+    DIV     %G5     %G5     0
     SUB    %G5     %G5     1
     JUMP    +_sub_loop_top
     

@@ -15,18 +15,22 @@ _add_loop_top:
     ;; End the search when the running sum == 10
     BEQ    +_add_loop_end     %G5  *+_end_of_loop   
     ADD     %G5     %G5     1
+    ADD     %G5     %G5     2
+        ADD     %G5     %G5     1
+    ADD     %G5     %G5     2
+    
+    ;;print running message to the console
+    COPY    %G0  *+_print_sysc_code
+    COPY    %G1    +_string_running_rom2_msg
+    SYSC
     JUMP    +_add_loop_top
     
 
 _add_loop_end:
     ;;print end message to the console
-    COPY    %G4    0
-    COPY    %G5    2
-    DIV     %G4    %G5    %G4
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_exit_rom2_msg
     SYSC
-
     ;;;exit
     COPY    %G0    *+_exit_sysc_code
     SYSC
@@ -40,6 +44,7 @@ _create_sysc_code: 2
 _get_rom_count_sysc_code: 3
 _print_sysc_code: 4
 
-.Text                                                                             
+.Text
 _string_start_rom2_msg: "User program 2 has started\n"
+_string_running_rom2_msg: "User program 2 is runnig\n"
 _string_exit_rom2_msg: "User program 2 is done\n"

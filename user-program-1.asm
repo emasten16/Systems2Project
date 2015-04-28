@@ -6,8 +6,7 @@ __start:
     COPY    %G0  *+_print_sysc_code
     COPY    %G1    +_string_start_rom1_msg
     SYSC
-
-    
+   
 ;;Add some numbers  
     ADD     %G5     *+_x    *+_y ; at this point, %G5 = 12. Check that this works
     
@@ -16,10 +15,14 @@ __start:
     COPY    %G5   1 ;%G5 = running total(2 to the %G4)
     
 _power_of_2_loop_top:
-    ;; End the search when the running sum == 10
     BEQ    +_power_of_2_loop_end     %G4  *+_end_of_loop   
     MULUS     %G5     %G5     2
     ADD     %G4     %G4     1
+    ;;print running message to the console
+    COPY    %G0  *+_print_sysc_code
+    COPY    %G1    +_string_running_rom1_msg
+    SYSC
+
     JUMP    +_power_of_2_loop_top
     
     ;;at this point, %G5 should hold 32
@@ -46,4 +49,5 @@ _print_sysc_code: 4
 
 .Text                                                                             
 _string_start_rom1_msg: "User program 1 has started\n"
+_string_running_rom1_msg:  "User program 1 is running\n"
 _string_exit_rom1_msg: "User program 1 ended\n"
